@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Gym Log</title>
+<meta name="theme-color" content="#14171a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym Log">
+<script>
+  /* Set theme before first paint to avoid a flash of the wrong mode */
+  (function(){
+    try{
+      var t = localStorage.getItem('gymlog_theme');
+      if(!t){ t = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+      document.documentElement.setAttribute('data-theme', t);
+    }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+  })();
+</script>
+<style>
+  /* ============ THEME TOKENS — "Chalk & Iron" ============ */
+  :root, :root[data-theme="dark"]{
+    --bg:#14171a;
+    --bg-glow:#1c2226;
+    --card:#1e2226;
+    --card-2:#262b30;
+    --card-active:#2d3338;
+    --card-border:#383f45;
+    --input-bg:#181c1f;
+    --text:#eef0ee;
+    --muted:#9aa3a8;
+    --accent:#ff6b47;
+    --accent-strong:#ff8a63;
+    --accent-fill:#e14425;
+    --accent-glow:rgba(225,68,37,0.40);
+    --accent-dim:rgba(255,107,71,0.14);
+    --on-accent:#fff5f0;
+    --danger:#ff6b81;
+    --danger-border:#4a2530;
+    --shadow:0 8px 24px rgba(0,0,0,0.50);
+    --shadow-sm:0 3px 10px rgba(0,0,0,0.40);
+    --texture:
+      linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.04) 100%);
+    --texture-repeat:no-repeat;
+    --texture-size:auto;
+    --heat-1:rgba(255,107,71,0.18);
+    --heat-2:rgba(255,107,71,0.38);
+    --heat-3:rgba(255,107,71,0.62);
+    --bonus:#4fb3c9;
+  }
+  :root[data-theme="light"]{
+    --bg:#f1efec;
+    --bg-glow:#fbfaf8;
+    --card:#ffffff;
+    --card-2:#f6f4f1;
+    --card-active:#ebe8e3;
+    --card-border:#ddd9d3;
+    --input-bg:#f7f5f2;
+    --text:#22262a;
+    --muted:#767c80;
+    --accent:#d6431f;
+    --accent-strong:#e85a34;
+    --accent-fill:#c23a18;
+    --accent-glow:rgba(198,58,24,0.25);
+    --accent-dim:rgba(214,67,31,0.10);
+    --on-accent:#fff6f2;
+    --danger:#c23350;
+    --danger-border:#eccdd3;
+    --shadow:0 10px 26px rgba(30,30,28,0.10);
+    --shadow-sm:0 4px 12px rgba(30,30,28,0.08);
+    --texture:
+      radial-gradient(circle, rgba(34,38,42,0.05) 0.7px, transparent 0.7px);
+    --texture-repeat:repeat;
+    --texture-size:8px 8px;
+    --heat-1:rgba(214,67,31,0.16);
+    --heat-2:rgba(214,67,31,0.34);
+    --heat-3:rgba(214,67,31,0.58);
+    --bonus:#2f8fa6;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-image:
+      radial-gradient(1200px 520px at 50% -10%, var(--bg-glow), transparent 70%),
+      var(--texture);
+    background-color:var(--bg);
+    background-repeat:no-repeat, var(--texture-repeat);
+    background-size:auto, var(--texture-size);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding-bottom:env(safe-area-inset-bottom);
+    padding-top:env(safe-area-inset-top);
+  }
+  h1,h2,h3,h4{margin:0;}
+  button{font-family:inherit;}
+  .screen{display:none;padding:16px;max-width:640px;margin:0 auto;}
+  .screen.active{display:block;}
+
+  /* smooth theme crossfade */
+  body,.card,.hero-day,.day-row,.btn,.back-btn,.icon-btn,input,textarea,
+  .session-item,.modal,.done-btn,.del-btn,.add-set-btn,.stat-tile,
+  .session-actions button,.improve-grid button{
+    transition:background-color .28s ease, border-color .28s ease, color .28s ease, box-shadow .28s ease;
+  }
+
+  /* numeric readout treatment — stamped-scoreboard feel for weights/reps/stats */
+  .set-row input,.stat-tile .stat-value,.progression-row .pbest,
+  .card .lasttime,.card .suggest b,.session-ex .sets{
+    font-family:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
+  }
+
+  @keyframes fadeRise{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes donePop{ 0%{transform:scale(1);} 45%{transform:scale(1.2);} 100%{transform:scale(1);} }
+  @keyframes stampIn{
+    0%{opacity:0; transform:scale(0.55) rotate(-14deg);}
+    60%{opacity:1; transform:scale(1.12) rotate(4deg);}
+    100%{opacity:1; transform:scale(1) rotate(-2deg);}
+  }
+  .enter{animation:fadeRise .38s ease both; animation-delay:calc(var(--i,0) * 45ms);}
+  .groove{height:0;margin:18px 0;border-top:1px solid var(--card-border);box-shadow:0 1px 0 var(--card);}
+
+  /* ---- top bar ---- */
+  .topbar{
+    display:flex;align-items:center;gap:12px;
+    padding:6px 0 18px 0;
+  }
+  .topbar h1{font-size:22px;letter-spacing:0.6px;font-weight:800;}
+  .topbar .sub{color:var(--muted);font-size:14px;margin-top:3px;}
+  .wordmark{
+    background:linear-gradient(92deg, var(--accent-strong), var(--accent-fill));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    letter-spacing:1.2px !important;
+  }
+  .icon-btn{
+    flex:none;
+    background:var(--card);border:1px solid var(--card-border);color:var(--accent);
+    border-radius:4px;min-width:44px;min-height:44px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow-sm);
+  }
+  .icon-btn:active{background:var(--card-active);}
+  .icon-btn:first-of-type{margin-left:auto;}
+  .header-icon{
+    width:38px;height:38px;border-radius:4px;flex:none;
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    color:var(--on-accent);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 5px 12px var(--accent-glow);
+  }
+  .back-btn{
+    background:var(--card);border:1px solid var(--card-border);color:var(--text);
+    border-radius:4px;min-width:44px;min-height:44px;font-size:20px;
+    display:flex;align-items:center;justify-content:center;flex:none;
+    box-shadow:var(--shadow-sm);
+  }
+  .back-btn:active{background:var(--card-active);}
+
+  /* ---- generic buttons ---- */
+  .btn{
+    display:block;width:100%;
+    background:var(--card);color:var(--text);
+    border:1px solid var(--card-border);
+    border-radius:6px;
+    padding:16px;
+    font-size:17px;font-weight:600;
+    min-height:44px;
+    text-align:left;
+    margin-bottom:12px;
+    box-shadow:var(--shadow-sm);
+    transition:transform .12s ease, background-color .28s ease, border-color .28s ease;
+  }
+  .btn:active{background:var(--card-active);transform:scale(0.97);}
+  .btn.accent{
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    color:var(--on-accent);border:none;
+    text-align:center;font-size:18px;font-weight:700;letter-spacing:0.3px;
+    box-shadow:0 8px 20px var(--accent-glow);
+  }
+  .btn.accent:active{filter:brightness(0.96);transform:scale(0.97);}
+  .btn.ghost{background:var(--card);}
+  .btn.danger{color:var(--danger);border-color:var(--danger-border);}
+
+  /* ---- home: hero (today) + day rows ---- */
+  .hero-day{
+    display:block;width:100%;text-align:left;color:var(--text);
+    background:linear-gradient(120deg, var(--accent-dim), var(--card) 62%);
+    border:1px solid var(--accent);border-radius:0;
+    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    padding:22px 20px;margin-bottom:14px;
+    box-shadow:0 14px 32px var(--accent-glow);
+    position:relative;overflow:hidden;
+    transition:transform .12s ease, background-color .28s ease, border-color .28s ease;
+  }
+  .hero-day::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+  }
+  .hero-day:active{transform:scale(0.98);}
+  .hero-day.completed{
+    background:linear-gradient(120deg, var(--card-2), var(--card) 70%);
+    border-color:var(--card-border);
+    box-shadow:none;
+  }
+  .hero-day.completed::before{background:var(--muted);}
+  .hero-day.completed .hero-icon{background:var(--muted);box-shadow:none;}
+  .hero-day.completed .hero-label{color:var(--muted);}
+  .hero-day.completed .hero-teaser b{color:var(--muted);}
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .hero-icon{
+    width:42px;height:42px;border-radius:4px;flex:none;
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    display:flex;align-items:center;justify-content:center;color:var(--on-accent);
+    box-shadow:0 6px 14px var(--accent-glow);
+  }
+  .hero-label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1.4px;font-weight:800;margin-bottom:5px;}
+  .hero-name{font-size:25px;font-weight:900;letter-spacing:0.5px;}
+  .hero-group{color:var(--muted);font-size:14px;margin-top:2px;}
+  .hero-teaser{margin-top:16px;font-size:14px;color:var(--text);}
+  .hero-teaser b{color:var(--accent);font-weight:800;font-family:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;}
+  .hero-streak{
+    display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;
+    color:var(--accent);background:var(--accent-dim);padding:5px 10px;border-radius:4px;margin-top:12px;
+  }
+  .hero-streak svg{width:13px;height:13px;}
+  .hero-right{display:flex;flex-direction:column;align-items:center;gap:8px;}
+
+  .day-row{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    background:var(--card-2);border:1px solid var(--card-border);
+    border-radius:6px;padding:13px 16px;margin-bottom:10px;color:var(--text);
+    transition:transform .12s ease, background-color .28s ease, border-color .28s ease;
+  }
+  .day-row:active{background:var(--card-active);transform:scale(0.98);}
+  .day-row.completed{opacity:0.62;}
+  .row-icon{
+    width:34px;height:34px;border-radius:4px;flex:none;
+    background:var(--input-bg);border:1px solid var(--card-border);
+    display:flex;align-items:center;justify-content:center;color:var(--muted);
+  }
+  .row-name{font-size:15px;font-weight:800;letter-spacing:0.5px;}
+  .row-group{color:var(--muted);font-size:12px;margin-top:1px;}
+  .row-done-badge{
+    width:24px;height:24px;border-radius:50%;flex:none;margin-left:auto;
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    color:var(--on-accent);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 10px var(--accent-glow);
+  }
+  .row-done-badge svg{width:12px;height:12px;}
+
+  .suggested-today{
+    background:var(--card);border:1px solid var(--card-border);
+    border-radius:6px;padding:16px;margin-bottom:14px;
+    box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
+  }
+  .suggested-today::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+  }
+  .suggested-label{
+    display:flex;align-items:center;gap:6px;font-size:11px;color:var(--accent);
+    text-transform:uppercase;letter-spacing:1.2px;font-weight:800;margin-bottom:8px;
+  }
+  .suggested-label svg{width:14px;height:14px;flex:none;}
+  .suggested-today.completed::before{background:var(--muted);}
+  .suggested-today.completed .suggested-label{color:var(--muted);}
+  .suggested-body{font-size:14px;color:var(--text);margin-bottom:4px;}
+  .suggested-body b{color:var(--accent);font-weight:800;}
+  .rest-exercise{margin-top:12px;}
+  .rest-exercise-name{font-size:14px;font-weight:800;margin-bottom:8px;}
+  .rest-pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .rest-pill{
+    background:var(--input-bg);border:1px solid var(--card-border);color:var(--text);
+    border-radius:20px;padding:6px 13px;font-size:13px;font-weight:700;
+  }
+  .see-more-btn{
+    display:block;width:100%;background:transparent;border:none;color:var(--accent);
+    font-size:13px;font-weight:800;padding:10px;margin-top:10px;text-align:center;
+  }
+  .see-more-btn:active{opacity:0.6;}
+
+  .badge{
+    display:inline-block;font-size:11px;color:var(--on-accent);
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    padding:4px 10px;border-radius:3px;font-weight:900;letter-spacing:1.1px;
+    box-shadow:0 4px 10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 4px rgba(0,0,0,0.15);
+    transform:rotate(-2deg);
+  }
+  .nav-links{display:flex;gap:12px;margin-top:22px;}
+  .nav-links .btn{margin-bottom:0;text-align:center;}
+  .nav-btn{display:flex;align-items:center;justify-content:center;gap:8px;}
+
+  /* ---- exercise cards ---- */
+  .card{
+    background:var(--card);border:1px solid var(--card-border);
+    border-radius:6px;padding:16px;margin-bottom:14px;
+    box-shadow:var(--shadow-sm);
+  }
+  .card h3{font-size:18px;margin-bottom:2px;font-weight:800;letter-spacing:0.2px;}
+  .card h3.tap{color:var(--text);text-decoration:underline dotted var(--muted);text-underline-offset:3px;}
+  .ex-head{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+  .ex-head h3{margin-bottom:0;}
+  .variant-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:1px solid var(--card-border);border-radius:4px;background:var(--card-2);color:var(--muted);cursor:pointer;transition:transform .08s,color .12s,border-color .12s;}
+  .variant-btn:active{transform:scale(.9);color:var(--accent);border-color:var(--accent);}
+  .variant-list button.is-current{border-color:var(--accent);color:var(--accent);}
+  .variant-list button .variant-no-data{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;margin-top:2px;}
+  .card .target{color:var(--muted);font-size:13px;margin-bottom:8px;}
+  .card .lasttime{
+    font-size:14px;color:var(--accent);margin-bottom:8px;font-weight:600;
+    background:var(--accent-dim);display:inline-block;padding:5px 11px;border-radius:3px;
+  }
+  .trend{
+    display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:800;
+    vertical-align:1px;
+  }
+  .trend svg{flex:none;}
+  .trend-up{color:var(--accent);}
+  .trend-down{color:var(--danger);}
+  .trend-flat{color:var(--muted);}
+  .card .suggest{font-size:13px;color:var(--muted);margin:0 0 12px 0;}
+  .card .suggest b{color:var(--accent);font-weight:800;}
+  .set-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+  .set-row{display:flex;align-items:center;gap:6px;}
+  .done-btn{
+    width:42px;min-height:44px;flex:none;border-radius:3px;
+    border:1px solid var(--card-border);background:var(--input-bg);
+    color:var(--muted);font-size:16px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease, background-color .28s ease, border-color .28s ease;
+  }
+  .done-btn:active{transform:scale(0.9);}
+  .done-btn.pop{animation:donePop .3s ease;}
+  .set-row.done .done-btn{
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    border-color:transparent;color:var(--on-accent);box-shadow:0 4px 10px var(--accent-glow);
+  }
+  .set-row input{
+    flex:1 1 0;min-width:0;
+    background:var(--input-bg);border:1px solid var(--card-border);color:var(--text);
+    border-radius:3px;padding:12px 10px;font-size:18px;min-height:44px;text-align:center;font-weight:600;
+  }
+  .set-row input:focus{outline:2px solid var(--accent);border-color:transparent;}
+  .set-row input::placeholder{color:var(--muted);opacity:0.7;font-weight:400;}
+  .set-row.done input{opacity:0.5;}
+  .pr-badge{
+    font-size:11px;font-weight:800;color:var(--on-accent);
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));
+    border-radius:3px;padding:4px 7px;flex:none;letter-spacing:0.3px;
+    box-shadow:0 3px 8px var(--accent-glow);
+    transform:rotate(-2deg);
+  }
+  .pr-badge.stamp{animation:stampIn .4s cubic-bezier(.34,1.56,.64,1) both;}
+  .pr-badge svg{width:10px;height:10px;vertical-align:-1px;}
+  .del-btn{
+    width:42px;min-height:44px;flex:none;border-radius:3px;
+    border:1px solid var(--card-border);background:transparent;color:var(--muted);font-size:16px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .del-btn:active{color:var(--danger);border-color:var(--danger);}
+  .add-set-btn{
+    background:transparent;border:1px dashed var(--card-border);color:var(--accent);
+    border-radius:3px;padding:10px;width:100%;font-size:15px;font-weight:700;min-height:44px;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .add-set-btn:active{background:var(--accent-dim);}
+
+  .notes-sm{min-height:72px;}
+  .finish-bar{
+    position:sticky;bottom:0;
+    background:linear-gradient(180deg, transparent, var(--bg) 34%);
+    padding:16px 0 8px 0;margin-top:8px;
+  }
+
+  /* ---- modal ---- */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,0.62);backdrop-filter:blur(2px);
+    align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:var(--card);border-top:1px solid var(--card-border);
+    border-radius:8px 8px 0 0;padding:22px 20px;width:100%;max-width:640px;
+    padding-bottom:calc(22px + env(safe-area-inset-bottom));
+    box-shadow:0 -12px 40px rgba(0,0,0,0.35);
+  }
+  .modal h3{font-size:17px;margin-bottom:16px;text-align:center;font-weight:800;}
+  .improve-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .improve-grid button{
+    background:var(--input-bg);border:1px solid var(--card-border);color:var(--text);
+    border-radius:4px;padding:16px 8px;font-size:15px;font-weight:700;min-height:56px;
+  }
+  .improve-grid button:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+  .modal .cancel{
+    background:transparent;border:none;color:var(--muted);width:100%;padding:10px;font-size:15px;
+    min-height:44px;font-weight:600;
+  }
+  .modal.center-modal{border-radius:6px;max-height:80vh;overflow-y:auto;}
+  .modal-overlay.center{align-items:center;}
+
+  /* ---- calendar ---- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .stat-tile{
+    background:var(--card);border:1px solid var(--card-border);
+    border-radius:0;clip-path:polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    padding:15px 14px 14px 14px;box-shadow:var(--shadow-sm);
+    position:relative;overflow:hidden;
+  }
+  .stat-tile::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:3px;
+    background:linear-gradient(90deg, var(--accent-strong), var(--accent-fill));opacity:0.75;
+  }
+  .stat-tile .stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px;}
+  .stat-tile .stat-value{font-size:19px;font-weight:800;letter-spacing:-0.01em;display:flex;align-items:center;gap:5px;}
+  .stat-tile .stat-value svg{width:14px;height:14px;flex:none;}
+  .heat-scroll{overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;}
+  .heat-grid{display:flex;gap:4px;width:max-content;}
+  .heat-week{display:flex;flex-direction:column;gap:4px;}
+  .heat-cell{width:18px;height:18px;border-radius:3px;background:var(--card-border);}
+  .heat-cell.future{visibility:hidden;}
+  .heat-cell.lvl-1{background:var(--heat-1);}
+  .heat-cell.lvl-2{background:var(--heat-2);}
+  .heat-cell.lvl-3{background:var(--heat-3);}
+  .heat-cell.lvl-4{background:var(--accent);}
+  .heat-cell.bonus{background:var(--bonus);}
+  .heat-cell[onclick]{cursor:pointer;}
+
+  /* ---- history / session cards (reused by calendar day modal) ---- */
+  .session-item{
+    background:var(--card);border:1px solid var(--card-border);border-radius:6px;
+    margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm);
+  }
+  .session-head{
+    padding:15px 16px;display:flex;justify-content:space-between;align-items:center;min-height:44px;
+  }
+  .session-head .date{font-weight:800;font-size:16px;}
+  .session-head .day{color:var(--muted);font-size:12px;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;}
+  .session-head .count{color:var(--accent);font-size:13px;font-weight:700;}
+  .pr-title-wrap{display:flex;align-items:center;gap:6px;min-width:0;}
+  .pr-title-wrap .date.tap{text-decoration:underline dotted var(--muted);text-underline-offset:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .session-body{display:none;padding:0 16px 16px 16px;border-top:1px solid var(--card-border);}
+  .session-body.open{display:block;}
+  .session-ex{margin-top:12px;}
+  .session-ex .exname{font-weight:700;text-decoration:underline dotted var(--muted);text-underline-offset:3px;display:inline-block;margin-bottom:4px;}
+  .session-ex .sets{color:var(--muted);font-size:14px;}
+  .session-improve{margin-top:12px;font-size:13px;color:var(--accent);font-weight:600;}
+  .session-notes{margin-top:10px;font-size:14px;color:var(--text);background:var(--input-bg);border-radius:3px;padding:10px 12px;white-space:pre-wrap;}
+  .session-actions{display:flex;gap:10px;margin-top:14px;}
+  .session-actions button{flex:1;background:var(--input-bg);border:1px solid var(--card-border);color:var(--text);border-radius:3px;padding:10px;font-size:14px;font-weight:700;min-height:44px;}
+  .session-actions button.del{color:var(--danger);border-color:var(--danger-border);}
+  .empty-note{color:var(--muted);text-align:center;padding:40px 10px;}
+
+  .progression-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--card-border);font-size:15px;}
+  .progression-row:last-child{border-bottom:none;}
+  .progression-row .pdate{color:var(--muted);}
+  .progression-row .pbest{font-weight:800;color:var(--accent);}
+
+  /* ---- notes textarea ---- */
+  textarea{
+    width:100%;min-height:160px;background:var(--input-bg);color:var(--text);
+    border:1px solid var(--card-border);border-radius:3px;padding:12px;font-size:13px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+  }
+  textarea:focus{outline:2px solid var(--accent);border-color:transparent;}
+  label.section-label{display:block;color:var(--muted);font-size:13px;margin:18px 0 8px 0;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
+  .toast{
+    /* deliberately left pill-shaped, unlike the rest of the app's squared surfaces — reads as a chip */
+    position:fixed;left:50%;bottom:30px;transform:translateX(-50%);
+    background:linear-gradient(180deg, var(--accent-strong), var(--accent-fill));color:var(--on-accent);
+    padding:11px 20px;border-radius:22px;
+    font-size:14px;font-weight:800;z-index:100;display:none;text-align:center;
+    box-shadow:0 8px 22px var(--accent-glow);
+  }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="topbar">
+    <div>
+      <h1 class="wordmark">GYM LOG</h1>
+      <div class="sub" id="home-date"></div>
+    </div>
+    <button class="icon-btn" id="backup-btn" onclick="openBackupModal()" aria-label="Backup and restore data"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v12"/><path d="M5 12l3 3 3-3"/><path d="M16 21V9"/><path d="M19 12l-3-3-3 3"/></svg></button>
+    <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light or dark mode"></button>
+  </div>
+  <div id="suggested-today"></div>
+  <div id="day-buttons"></div>
+  <div class="nav-links">
+    <button class="btn ghost nav-btn" onclick="showScreen('screen-calendar');renderCalendar();"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="0"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7.5" y1="3" x2="7.5" y2="7"/><line x1="16.5" y1="3" x2="16.5" y2="7"/></svg> Calendar</button>
+    <button class="btn ghost nav-btn" onclick="showScreen('screen-pr');renderPRs();"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v6a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7 11"/><path d="M17 6h3v1.5A3.5 3.5 0 0 1 17 11"/><line x1="12" y1="15" x2="12" y2="18"/><path d="M8.5 21h7l-1-3h-5l-1 3z"/></svg> PR</button>
+  </div>
+</div>
+
+<!-- WORKOUT -->
+<div class="screen" id="screen-workout">
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('screen-home');renderHome();"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
+    <div>
+      <h1 id="workout-title">MONDAY</h1>
+      <div class="sub" id="workout-date"></div>
+    </div>
+    <span class="header-icon" id="workout-icon" style="margin-left:auto;"></span>
+  </div>
+  <div class="groove"></div>
+  <div id="exercise-list"></div>
+  <label class="section-label">Notes</label>
+  <textarea id="workout-notes" class="notes-sm" placeholder="How did it go? (optional)" oninput="onNotesInput(this.value)"></textarea>
+  <div class="finish-bar">
+    <button class="btn accent" onclick="openImproveModal()">Finish workout</button>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div class="screen" id="screen-calendar">
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('screen-home');renderHome();"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
+    <div><h1>Calendar</h1></div>
+  </div>
+  <div class="stat-grid" id="calendar-stats"></div>
+  <div class="groove"></div>
+  <div class="heat-scroll" id="calendar-heatmap"></div>
+</div>
+
+<!-- PR -->
+<div class="screen" id="screen-pr">
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('screen-home');renderHome();"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
+    <div><h1>Personal Records</h1></div>
+  </div>
+  <div id="pr-list"></div>
+</div>
+
+<!-- IMPROVE MODAL -->
+<div class="modal-overlay" id="improve-overlay">
+  <div class="modal">
+    <h3>What did you improve today?</h3>
+    <div class="improve-grid">
+      <button onclick="finishWorkout('+1 rep')">+1 rep</button>
+      <button onclick="finishWorkout('+weight')">+weight</button>
+      <button onclick="finishWorkout('better form')">better form</button>
+      <button onclick="finishWorkout('shorter rest')">shorter rest</button>
+    </div>
+    <button class="cancel" onclick="closeImproveModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- PROGRESSION MODAL -->
+<div class="modal-overlay center" id="progression-overlay">
+  <div class="modal center-modal">
+    <h3 id="progression-title">Exercise</h3>
+    <div id="progression-list"></div>
+    <button class="cancel" onclick="closeProgressionModal()">Close</button>
+  </div>
+</div>
+
+<!-- CALENDAR DAY MODAL -->
+<div class="modal-overlay center" id="calendar-day-overlay">
+  <div class="modal center-modal">
+    <h3 id="calendar-day-title">Date</h3>
+    <div id="calendar-day-list"></div>
+    <button class="cancel" onclick="closeCalendarDay()">Close</button>
+  </div>
+</div>
+
+<!-- BACKUP MODAL -->
+<div class="modal-overlay center" id="backup-overlay">
+  <div class="modal center-modal">
+    <h3>Backup &amp; Restore</h3>
+    <div class="improve-grid" style="grid-template-columns:1fr;">
+      <button onclick="exportData()">Export data (.json)</button>
+      <button onclick="document.getElementById('import-file').click()">Import data (.json)</button>
+    </div>
+    <button class="cancel" onclick="closeBackupModal()">Cancel</button>
+  </div>
+</div>
+<input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="handleImportFile(event)">
+
+<!-- VARIANT PICKER MODAL -->
+<div class="modal-overlay center" id="variant-overlay">
+  <div class="modal center-modal">
+    <h3 id="variant-title">Choose variant</h3>
+    <div class="improve-grid variant-list" id="variant-list" style="grid-template-columns:1fr;"></div>
+    <button class="cancel" onclick="closeVariantPicker()">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- theme ---------------- */
+const THEME_KEY = 'gymlog_theme';
+const ICON_SUN = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.3M12 19.2v2.3M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.3M19.2 12h2.3M19.4 4.6l-1.6 1.6M6.2 17.8l-1.6 1.6"/></svg>';
+const ICON_MOON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21.2 13.3A9 9 0 1 1 10.7 2.8a7.2 7.2 0 0 0 10.5 10.5z"/></svg>';
+
+/* ---------------- day icons (abstract, geometric — not literal anatomy) ---------------- */
+const ICON_CHEST = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="16" width="20" height="3" rx="1"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="6.5" x2="4" y2="11.5"/><line x1="20" y1="6.5" x2="20" y2="11.5"/><line x1="7" y1="7.5" x2="7" y2="10.5"/><line x1="17" y1="7.5" x2="17" y2="10.5"/></svg>';
+const ICON_BACK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 L11 8"/><circle cx="12.5" cy="5.5" r="1.6"/><path d="M9 13 L18 13"/><line x1="18" y1="10.5" x2="18" y2="15.5"/></svg>';
+const ICON_LEGS = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="4" x2="6" y2="21"/><line x1="18" y1="4" x2="18" y2="21"/><line x1="3.5" y1="9" x2="20.5" y2="9"/><path d="M9 21 L12 14 L15 21"/></svg>';
+const ICON_SHOULDERS = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3.5" y1="6" x2="20.5" y2="6"/><line x1="6" y1="6" x2="6" y2="3.8"/><line x1="18" y1="6" x2="18" y2="3.8"/><path d="M8 16 L8 8 M16 16 L16 8"/><path d="M5 20 Q12 15.5 19 20"/></svg>';
+const ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-2.5 4-2.5 7.5A4.5 4.5 0 0 0 14 14c1.8 0 2.7-1 2.9-1.8.7 1 1.1 2.2 1.1 3.3 0 3.6-2.9 6.5-6.5 6.5S5 19.1 5 15.5C5 10 9 8 9 5c0-1 .5-2 1-2.5C10.5 3.5 11 3 12 2z"/></svg>';
+
+/* ---------------- expanded UI icons (abstract line-icons, same linework as day icons) ---------------- */
+const ICON_BACK_ARROW = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>';
+const ICON_CALENDAR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="0"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7.5" y1="3" x2="7.5" y2="7"/><line x1="16.5" y1="3" x2="16.5" y2="7"/></svg>';
+const ICON_TROPHY = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v6a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7 11"/><path d="M17 6h3v1.5A3.5 3.5 0 0 1 17 11"/><line x1="12" y1="15" x2="12" y2="18"/><path d="M8.5 21h7l-1-3h-5l-1 3z"/></svg>';
+const ICON_CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9L17.5 7"/><line x1="10" y1="10.5" x2="10" y2="16.5"/><line x1="14" y1="10.5" x2="14" y2="16.5"/></svg>';
+const ICON_PLUS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>';
+const ICON_CHEVRON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+const ICON_STAR = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.7-4.9 4.6 1.3 6.6-5.9-3.3-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.7z"/></svg>';
+const ICON_LIST = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>';
+const ICON_LAYERS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l8.5 4.5-8.5 4.5-8.5-4.5z"/><path d="M3.5 13l8.5 4.5 8.5-4.5"/></svg>';
+const ICON_PLATE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICON_CALENDAR_CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="0"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="7.5" y1="3" x2="7.5" y2="7"/><line x1="16.5" y1="3" x2="16.5" y2="7"/><path d="M8.5 15l2 2 4.5-4.5"/></svg>';
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></svg>';
+const ICON_MEDAL = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l-3 7h-2z"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.5v6M9.2 14.5h5.6"/></svg>';
+const ICON_BOLT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>';
+const ICON_TREND_UP = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6 4 4 6-8"/><path d="M14 6.5h6V12.5"/></svg>';
+const ICON_TREND_DOWN = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l6 6 4-4 6 8"/><path d="M14 17.5h6V11.5"/></svg>';
+const ICON_TREND_FLAT = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h16"/></svg>';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', t==='light' ? '#f1efec' : '#14171a');
+  const btn = document.getElementById('theme-toggle');
+  if(btn) btn.innerHTML = (t==='light') ? ICON_MOON : ICON_SUN; // show the action you'll take
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur==='light' ? 'dark' : 'light';
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+  applyTheme(next);
+}
+
+/* ---------------- data ---------------- */
+const DAYS = {
+  MONDAY: { label:'Chest + Triceps', exercises:[
+    {name:'Free Bar Bench Press', target:'3-4 sets x 6-8 reps', seed:65, variants:['Free Bar Bench Press','Smith Machine Bench Press']},
+    {name:'Rope Pushdown', target:'3 sets x 10-15 reps', seed:38, variants:['Rope Pushdown','Bar Pushdown','Single-Arm Pushdown']},
+    {name:'Incline DB Press', target:'3 sets x 8-12 reps', seed:12, variants:['Incline DB Press','Free Bar Incline Press','Smith Machine Incline Press']},
+    {name:'DB Overhead Ext', target:'2-3 sets x 10-15 reps', seed:18, variants:['DB Overhead Ext','Cable Overhead Ext']},
+    {name:'Machine Chest Press', target:'2-3 sets x 8-12 reps', seed:40},
+    {name:'Machine Chest Fly', target:'3 sets x 10-15 reps', seed:27, variants:['Machine Chest Fly','Cable Chest Fly','DB Chest Fly']},
+  ]},
+  TUESDAY: { label:'Back + Biceps', exercises:[
+    {name:'Lat Pulldown', target:'3 sets x 8-12 reps', seed:50},
+    {name:'Machine Bicep Curls', target:'3 sets x 8-12 reps', seed:18, variants:['Machine Bicep Curls','DB Bicep Curls','Cable Bicep Curls']},
+    {name:'Cable Row', target:'3 sets x 8-12 reps', seed:45, variants:['Cable Row','Machine Row (chest-supported)']},
+    {name:'DB Hammer Curls', target:'2-3 sets x 10-12 reps', seed:12.5, variants:['DB Hammer Curls','Cable Hammer Curls']},
+    {name:'Machine Row', target:'3 sets x 8-12 reps', seed:45},
+    {name:'Face Pulls', target:'3 sets x 12-15 reps', seed:32},
+  ]},
+  THURSDAY: { label:'Legs + Abs', exercises:[
+    {name:'Squats', target:'3-4 sets x 6-10 reps', seed:60},
+    {name:'Seated Leg Curl', target:'3 sets x 10-15 reps', seed:35},
+    {name:'Leg Press', target:'3 sets x 10-12 reps', seed:55},
+    {name:'Back Extensions', target:'2-3 sets x 10 reps', seed:0},
+    {name:'Calf Raises', target:'3 sets x 12-20 reps', seed:20},
+    {name:'Hanging Leg Raises', target:'3 sets', seed:0},
+  ]},
+  FRIDAY: { label:'Shoulders + Arms', exercises:[
+    {name:'DB Shoulder Press', target:'3 sets x 6-10 reps', seed:20, variants:['DB Shoulder Press','Machine Shoulder Press']},
+    {name:'Machine Bicep Curls', target:'3 sets x 8-12 reps', seed:18, variants:['Machine Bicep Curls','DB Bicep Curls','Cable Bicep Curls']},
+    {name:'DB Lateral Raise', target:'3 sets x 12-15 reps', seed:6, variants:['DB Lateral Raise','Cable Lateral Raise','Machine Lateral Raise']},
+    {name:'Rope Pushdown', target:'3 sets x 10-15 reps', seed:38, variants:['Rope Pushdown','Bar Pushdown','Single-Arm Pushdown']},
+    {name:'Machine Rear Delt Fly', target:'3 sets x 12-15 reps', seed:36, variants:['Machine Rear Delt Fly','Cable Rear Delt Fly','DB Rear Delt Fly']},
+    {name:'DB Hammer Curls', target:'2 sets x 10-12 reps', seed:12.5, variants:['DB Hammer Curls','Cable Hammer Curls']},
+  ]},
+};
+const DAY_ORDER = ['MONDAY','TUESDAY','THURSDAY','FRIDAY'];
+const DOW_TO_KEY = {1:'MONDAY',2:'TUESDAY',4:'THURSDAY',5:'FRIDAY'};
+const DAY_TO_DOW = {MONDAY:1, TUESDAY:2, THURSDAY:4, FRIDAY:5};
+const DAY_ICONS = {MONDAY:ICON_CHEST, TUESDAY:ICON_BACK, THURSDAY:ICON_LEGS, FRIDAY:ICON_SHOULDERS};
+
+// Small bonus routines for the non-split days, keyed by Date.getDay() (0=Sun..6=Sat).
+// Split days (1,2,4,5) aren't listed here — renderSuggestedToday() handles those separately.
+// unit:'reps' logs a rep count per set; unit:'sec' (Plank) logs a hold duration per set.
+const REST_DAY_PLAN = {
+  0: [ {name:'Pull-ups', sets:3, unit:'reps'}, {name:'Bodyweight Squats', sets:3, unit:'reps'} ],
+  3: [ {name:'Push-ups', sets:3, unit:'reps'}, {name:'Pike Push-ups', sets:2, unit:'reps'}, {name:'Plank', sets:1, unit:'sec'} ],
+  6: [],
+};
+function getAllBonusExerciseNames(){
+  const seen = new Set();
+  Object.values(REST_DAY_PLAN).forEach(list => list.forEach(ex => seen.add(ex.name)));
+  return Array.from(seen);
+}
+function getBonusUnitMap(){
+  const map = {};
+  Object.values(REST_DAY_PLAN).forEach(list => list.forEach(ex => { map[ex.name] = ex.unit; }));
+  return map;
+}
+
+/* ---------------- storage ---------------- */
+const STORE_KEY = 'gymlog';
+const DRAFT_KEY = 'gymlog_draft';
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return {sessions:[]};
+    const parsed = JSON.parse(raw);
+    if(!parsed || !Array.isArray(parsed.sessions)) return {sessions:[]};
+    return parsed;
+  }catch(e){ return {sessions:[]}; }
+}
+function saveData(data){ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+function loadDraft(){
+  try{ const r = localStorage.getItem(DRAFT_KEY); if(!r) return null; const d = JSON.parse(r); return (d && d.dayKey) ? d : null; }
+  catch(e){ return null; }
+}
+function clearDraft(){ localStorage.removeItem(DRAFT_KEY); }
+// Rest-day bonus exercise history — separate from the `gymlog` sessions store so it never
+// touches streak/heatmap-stat calculations that assume a real logged split-day workout.
+// Sessions are keyed by date only (one entry per day, upserted), same {name,sets} shape as
+// a real session's exercises so bestSet()/est1RM() and the PR screen work on it unchanged.
+const BONUS_KEY = 'gymlog_bonus';
+function loadBonusSessions(){
+  try{ const r = localStorage.getItem(BONUS_KEY); const v = r ? JSON.parse(r) : null; return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+}
+function saveBonusForDate(dateStr, exercises){
+  const cleaned = exercises.map(ex=>({
+    name: ex.name,
+    sets: ex.sets.map(s=>({weight:0, reps: parseFloat(s.reps)})).filter(s=> !isNaN(s.reps) && s.reps > 0)
+  })).filter(ex=> ex.sets.length > 0);
+  const sessions = loadBonusSessions();
+  const idx = sessions.findIndex(s=>s.date===dateStr);
+  if(cleaned.length === 0){
+    if(idx !== -1) sessions.splice(idx, 1);
+  } else if(idx !== -1){
+    sessions[idx] = {date: dateStr, exercises: cleaned};
+  } else {
+    sessions.push({date: dateStr, exercises: cleaned});
+  }
+  localStorage.setItem(BONUS_KEY, JSON.stringify(sessions));
+}
+function saveBonusToday(exercises){
+  saveBonusForDate(formatDateLocal(new Date()), exercises);
+}
+const VARIANTS_KEY = 'gymlog_variants';
+function loadVariants(){
+  try{ const r = localStorage.getItem(VARIANTS_KEY); const v = r ? JSON.parse(r) : null; return (v && typeof v==='object') ? v : {}; }
+  catch(e){ return {}; }
+}
+function saveVariant(dayKey, baseName, chosen){
+  const map = loadVariants();
+  const key = dayKey + '|' + baseName;
+  if(chosen === baseName) delete map[key]; else map[key] = chosen;
+  localStorage.setItem(VARIANTS_KEY, JSON.stringify(map));
+}
+// One-time rename of old generic exercise names to the new default variant names,
+// so history logged before the variant rename carries over instead of being orphaned.
+const NAME_MIGRATION_KEY = 'gymlog_named_v1';
+const NAME_MIGRATION = {
+  'Bicep Curls':'Machine Bicep Curls',
+  'Bench Press':'Free Bar Bench Press',
+  'Chest Fly':'Machine Chest Fly',
+  'Seated Row':'Cable Row',
+  'Shoulder Press':'DB Shoulder Press',
+  'Lateral Raise':'DB Lateral Raise',
+  'Rear Delt Fly':'Machine Rear Delt Fly',
+  'Tricep Pushdown':'Rope Pushdown',
+  'Hammer Curls':'DB Hammer Curls',
+  'Overhead Tricep Ext':'DB Overhead Ext'
+};
+function migrateExerciseNames(){
+  if(localStorage.getItem(NAME_MIGRATION_KEY)) return;
+  const data = loadData();
+  let changed = false;
+  data.sessions.forEach(s=>{
+    (s.exercises||[]).forEach(ex=>{
+      if(NAME_MIGRATION[ex.name]){ ex.name = NAME_MIGRATION[ex.name]; changed = true; }
+    });
+  });
+  if(changed) saveData(data);
+  const draft = loadDraft();
+  if(draft && Array.isArray(draft.exercises)){
+    let dchanged = false;
+    draft.exercises.forEach(ex=>{
+      if(NAME_MIGRATION[ex.name]){ ex.name = NAME_MIGRATION[ex.name]; dchanged = true; }
+    });
+    if(dchanged) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }
+  localStorage.setItem(NAME_MIGRATION_KEY, '1');
+}
+
+/* ---------------- helpers ---------------- */
+function formatDateLocal(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function formatDateHuman(dateStr){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return dt.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric', year:'numeric'});
+}
+function formatSets(sets){
+  if(!sets || !sets.length) return 'No data yet';
+  return sets.map(s => `${s.weight}kg x ${s.reps}`).join(', ');
+}
+// Bodyweight bonus exercises (weight 0) show as reps/sec instead of "0kg x N".
+function formatBest(best, unit){
+  if(!best) return 'No data yet';
+  if(unit === 'sec') return `${best.reps} sec`;
+  if(unit === 'reps') return `${best.reps} reps`;
+  return `${best.weight}kg × ${best.reps}`;
+}
+function bestSetAcrossSessions(name, sessionLists){
+  let best = null;
+  sessionLists.forEach(sessions=>{
+    sessions.forEach(s=>{
+      const ex = s.exercises.find(e=>e.name===name);
+      if(ex && ex.sets && ex.sets.length){
+        const b = bestSet(ex.sets);
+        if(!best || est1RM(b.weight,b.reps) > est1RM(best.weight,best.reps)) best = b;
+      }
+    });
+  });
+  return best;
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function jsStr(str){ return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// Bodyweight sets (weight 0 — rest-day bonus exercises) have nothing for the formula to
+// scale, so they're ranked by reps/seconds directly instead of always tying at 0.
+function est1RM(w, reps){ return w > 0 ? w * (1 + reps/30) : reps; }
+function bestSet(sets){
+  return sets.reduce((best,s)=>{
+    if(!best) return s;
+    if(est1RM(s.weight,s.reps) > est1RM(best.weight,best.reps)) return s;
+    return best;
+  }, null);
+}
+function findLastSession(exerciseName, excludeId){
+  const data = loadData();
+  const sorted = [...data.sessions].sort((a,b)=> (b.id||'').localeCompare(a.id||''));
+  for(const session of sorted){
+    if(excludeId && session.id===excludeId) continue;
+    const ex = session.exercises.find(e=>e.name===exerciseName);
+    if(ex && ex.sets && ex.sets.length) return {session, exercise:ex};
+  }
+  return null;
+}
+function findPreviousSession(exerciseName, excludeId){
+  const data = loadData();
+  const sorted = [...data.sessions].sort((a,b)=> (b.id||'').localeCompare(a.id||''));
+  let seen = 0;
+  for(const session of sorted){
+    if(excludeId && session.id===excludeId) continue;
+    const ex = session.exercises.find(e=>e.name===exerciseName);
+    if(ex && ex.sets && ex.sets.length){
+      seen++;
+      if(seen === 2) return {session, exercise:ex};
+    }
+  }
+  return null;
+}
+function priorBestEst1RM(exerciseName, excludeId){
+  const data = loadData();
+  let best = 0;
+  data.sessions.forEach(s=>{
+    if(excludeId && s.id===excludeId) return;
+    const ex = s.exercises.find(e=>e.name===exerciseName);
+    if(ex && ex.sets) ex.sets.forEach(st=>{ best = Math.max(best, est1RM(st.weight, st.reps)); });
+  });
+  return best;
+}
+function parseRepRange(target){
+  let m = target.match(/(\d+)\s*-\s*(\d+)\s*reps/);
+  if(m) return {lo:+m[1], hi:+m[2]};
+  m = target.match(/x\s*(\d+)\s*reps/);
+  if(m) return {lo:+m[1], hi:+m[1]};
+  return null;
+}
+function suggestTarget(ex, lastSets){
+  if(!lastSets || !lastSets.length) return null;
+  const best = bestSet(lastSets);
+  const range = parseRepRange(ex.target);
+  if(best.weight === 0 || !range){
+    return {weight: best.weight, reps: best.reps + 1};
+  }
+  if(best.reps < range.hi){
+    return {weight: best.weight, reps: best.reps + 1};
+  }
+  const inc = best.weight <= 10 ? 1 : 2.5;
+  return {weight: +(best.weight + inc).toFixed(2), reps: range.lo};
+}
+function suggestText(s){
+  if(s.weight === 0) return `Try: <b>${s.reps} reps</b>`;
+  return `Try: <b>${s.weight}kg &times; ${s.reps}</b>`;
+}
+function trendBadge(trend, pct){
+  if(!trend) return '';
+  if(trend==='up') return ` <span class="trend trend-up">${ICON_TREND_UP} +${pct}%</span>`;
+  if(trend==='down') return ` <span class="trend trend-down">${ICON_TREND_DOWN} ${pct}%</span>`;
+  return ` <span class="trend trend-flat">${ICON_TREND_FLAT} flat</span>`;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>{ t.style.display='none'; }, 1800);
+}
+
+/* ---------------- backup / restore ---------------- */
+function openBackupModal(){ document.getElementById('backup-overlay').classList.add('active'); }
+function closeBackupModal(){ document.getElementById('backup-overlay').classList.remove('active'); }
+function exportData(){
+  const data = loadData();
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gymlog-backup-${formatDateLocal(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeBackupModal();
+  toast('Backup downloaded');
+}
+function handleImportFile(event){
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let parsed;
+    try{ parsed = JSON.parse(reader.result); }
+    catch(e){ toast('Invalid backup file'); return; }
+    if(!parsed || !Array.isArray(parsed.sessions)){ toast('Invalid backup file'); return; }
+    if(!confirm(`Import ${parsed.sessions.length} session(s)? This replaces all current data.`)) return;
+    saveData({sessions: parsed.sessions});
+    clearDraft();
+    closeBackupModal();
+    toast('Data imported');
+    renderHome();
+  };
+  reader.readAsText(file);
+}
+
+/* ---------------- wake lock ---------------- */
+let wakeLock = null;
+async function acquireWakeLock(){
+  try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); } }catch(e){}
+}
+async function releaseWakeLock(){
+  try{ if(wakeLock){ await wakeLock.release(); wakeLock = null; } }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && document.getElementById('screen-workout').classList.contains('active')){
+    acquireWakeLock();
+  }
+});
+
+/* ---------------- screen nav ---------------- */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id !== 'screen-workout') releaseWakeLock();
+  window.scrollTo(0,0);
+}
+
+/* ---------------- HOME ---------------- */
+function renderHome(){
+  const now = new Date();
+  document.getElementById('home-date').textContent = now.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+
+  const todayKey = DOW_TO_KEY[now.getDay()] || null;
+  const container = document.getElementById('day-buttons');
+  container.innerHTML = '';
+
+  const data = loadData();
+  let streak = 0;
+  try{
+    streak = computeStreaks(buildCreditedDatesSet(data.sessions)).current;
+  }catch(e){}
+
+  const weekDates = getWeekDates();
+  const creditedDatesSet = buildCreditedDatesSet(data.sessions);
+  const doneBadge = `<div class="row-done-badge" title="Done this week">${ICON_CHECK}</div>`;
+
+  let i = 0;
+  DAY_ORDER.forEach(key=>{
+    const day = DAYS[key];
+    const icon = DAY_ICONS[key] || '';
+    const doneThisWeek = creditedDatesSet.has(weekDates[key]);
+    if(key === todayKey){
+      const firstEx = day.exercises[0];
+      const hero = document.createElement('button');
+      hero.className = 'hero-day enter' + (doneThisWeek ? ' completed' : '');
+      hero.style.setProperty('--i', i++);
+      hero.onclick = ()=> startWorkout(key);
+      hero.innerHTML = `
+        <div class="hero-top">
+          <div>
+            <div class="hero-label">Today's Workout</div>
+            <div class="hero-name">${key}</div>
+            <div class="hero-group">${day.label}</div>
+          </div>
+          <div class="hero-right">
+            <div class="hero-icon">${icon}</div>
+            ${doneThisWeek ? doneBadge : ''}
+          </div>
+        </div>
+        <div class="hero-teaser">Next up: <b>${escapeHtml(firstEx.name)}</b></div>
+        ${streak > 0 ? `<div class="hero-streak">${ICON_FLAME} ${streak}-day streak</div>` : ''}
+      `;
+      container.appendChild(hero);
+    } else {
+      const row = document.createElement('button');
+      row.className = 'day-row enter' + (doneThisWeek ? ' completed' : '');
+      row.style.setProperty('--i', i++);
+      row.onclick = ()=> startWorkout(key);
+      row.innerHTML = `
+        <div class="row-icon">${icon}</div>
+        <div>
+          <div class="row-name">${key}</div>
+          <div class="row-group">${day.label}</div>
+        </div>
+        ${doneThisWeek ? doneBadge : ''}
+      `;
+      container.appendChild(row);
+    }
+  });
+
+  renderSuggestedToday();
+}
+
+function renderSuggestedToday(){
+  const container = document.getElementById('suggested-today');
+  if(!container) return;
+  const now = new Date();
+  const dow = now.getDay();
+  const todayKey = DOW_TO_KEY[dow] || null;
+
+  if(todayKey){
+    const doneToday = buildCreditedDatesSet(loadData().sessions).has(formatDateLocal(now));
+    container.innerHTML = doneToday ? `
+      <div class="suggested-today completed">
+        <div class="suggested-label">${ICON_CHECK} Suggested for Today</div>
+        <div class="suggested-body">Workout done — now rest.</div>
+      </div>
+    ` : `
+      <div class="suggested-today">
+        <div class="suggested-label">${ICON_BOLT} Suggested for Today</div>
+        <div class="suggested-body">Today: <b>${escapeHtml(DAYS[todayKey].label)}</b></div>
+      </div>
+    `;
+    return;
+  }
+
+  const plan = REST_DAY_PLAN[dow] || [];
+  if(plan.length === 0){
+    container.innerHTML = `
+      <div class="suggested-today">
+        <div class="suggested-label">${ICON_BOLT} Suggested for Today</div>
+        <div class="suggested-body">Full rest today. No suggested exercises.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const state = buildRestDayState(plan);
+
+  if(!restExpanded){
+    container.innerHTML = `
+      <div class="suggested-today">
+        <div class="suggested-label">${ICON_BOLT} Suggested for Today</div>
+        <div class="suggested-body">Rest day, but keep it light:</div>
+        <div class="rest-pill-row">
+          ${state.exercises.map(ex=>`<span class="rest-pill">${escapeHtml(ex.name)}</span>`).join('')}
+        </div>
+        <button class="see-more-btn" onclick="toggleRestExpanded()">See more</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="suggested-today">
+      <div class="suggested-label">${ICON_BOLT} Suggested for Today</div>
+      <div class="suggested-body">Rest day, but keep it light:</div>
+      ${state.exercises.map((ex, exIdx)=>`
+        <div class="rest-exercise">
+          <div class="rest-exercise-name">${escapeHtml(ex.name)}</div>
+          <div class="set-rows">
+            ${ex.sets.map((s, setIdx)=>`
+              <div class="set-row${s.done?' done':''}" id="rest-row-${exIdx}-${setIdx}">
+                <button class="done-btn" onclick="toggleRestSetDone(${exIdx},${setIdx})">${s.done ? ICON_CHECK : (setIdx+1)}</button>
+                <input type="number" inputmode="numeric" step="1" placeholder="${ex.unit==='sec'?'sec':'reps'}"
+                  value="${valAttr(s.reps)}" oninput="onRestSetInput(${exIdx},${setIdx},this.value)">
+                <button class="del-btn" aria-label="Delete set" onclick="deleteRestSetRow(${exIdx},${setIdx})">${ICON_TRASH}</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="add-set-btn" onclick="addRestSetRow(${exIdx})">${ICON_PLUS} Add set</button>
+        </div>
+      `).join('')}
+      <button class="see-more-btn" onclick="toggleRestExpanded()">Show less</button>
+    </div>
+  `;
+}
+
+// Collapsed by default on every fresh page load — "just the names" per the user's ask —
+// but stays expanded across re-renders within the same visit once toggled open.
+let restExpanded = false;
+function toggleRestExpanded(){
+  restExpanded = !restExpanded;
+  renderSuggestedToday();
+}
+
+// In-memory editing state for today's bonus routine, rebuilt fresh each new calendar day
+// (or from whatever was already saved to gymlog_bonus today) but otherwise kept as-is
+// across re-renders within the same visit so an empty just-added set row isn't lost.
+// `done` is a same-visit-only visual toggle (like the real workout's done-check) — it
+// doesn't affect what's saved to gymlog_bonus/PR, only whether reps/seconds are filled in.
+let restDayState = null;
+function buildRestDayState(plan){
+  const todayStr = formatDateLocal(new Date());
+  if(restDayState && restDayState.date === todayStr) return restDayState;
+  const savedToday = loadBonusSessions().find(s=>s.date===todayStr);
+  restDayState = {
+    date: todayStr,
+    exercises: plan.map(planEx=>{
+      const saved = savedToday ? savedToday.exercises.find(e=>e.name===planEx.name) : null;
+      const sets = (saved && saved.sets.length)
+        ? saved.sets.map(s=>({reps:s.reps, done:false}))
+        : Array.from({length:planEx.sets}, ()=>({reps:'', done:false}));
+      return {name: planEx.name, unit: planEx.unit, sets};
+    })
+  };
+  return restDayState;
+}
+function onRestSetInput(exIdx, setIdx, value){
+  restDayState.exercises[exIdx].sets[setIdx].reps = value;
+  saveBonusToday(restDayState.exercises);
+}
+function toggleRestSetDone(exIdx, setIdx){
+  const s = restDayState.exercises[exIdx].sets[setIdx];
+  s.done = !s.done;
+  renderSuggestedToday();
+  if(s.done){
+    const btn = document.querySelector(`#rest-row-${exIdx}-${setIdx} .done-btn`);
+    if(btn){ btn.classList.add('pop'); btn.addEventListener('animationend', ()=>btn.classList.remove('pop'), {once:true}); }
+  }
+}
+function addRestSetRow(exIdx){
+  restDayState.exercises[exIdx].sets.push({reps:'', done:false});
+  saveBonusToday(restDayState.exercises);
+  renderSuggestedToday();
+}
+function deleteRestSetRow(exIdx, setIdx){
+  restDayState.exercises[exIdx].sets.splice(setIdx, 1);
+  saveBonusToday(restDayState.exercises);
+  renderSuggestedToday();
+}
+
+/* ---------------- WORKOUT ---------------- */
+let currentDayKey = null;
+let workoutState = [];       // [{name,target,seed,lastSets,suggestion,priorBest,sets:[{weight,reps,done}]}]
+let editSessionId = null, editSessionDate = null, editSessionDay = null;
+let workoutNotes = '';
+let prFlags = {}; // tracks whether each set was already a PR, so the stamp animation plays only once
+
+// If this day's workout is already credited for the current week, tapping it re-opens
+// that logged session for editing (same pre-filled view as the Calendar's Edit) instead of
+// a blank sheet, so revisiting an already-done day shows what you did rather than inviting
+// a second, duplicate entry.
+function findCreditedSessionForDay(dayKey, sessions){
+  const targetDate = getWeekDates()[dayKey];
+  if(!targetDate) return null;
+  return sessions.find(s => s.day === dayKey && creditedDateFor(s) === targetDate) || null;
+}
+
+function startWorkout(dayKey){
+  const draft = loadDraft();
+  if(draft && draft.dayKey){
+    if(draft.dayKey === dayKey){
+      openWorkout(dayKey, {draft});
+      return;
+    }
+    const label = draft.editSessionId ? (draft.dayKey + ' (edit)') : draft.dayKey;
+    if(!confirm(`You have an unfinished ${label} workout. Discard it and start ${dayKey}?`)) return;
+    clearDraft();
+  }
+
+  const creditedSession = findCreditedSessionForDay(dayKey, loadData().sessions);
+  if(creditedSession){
+    openWorkout(dayKey, {editSession: creditedSession});
+    return;
+  }
+
+  openWorkout(dayKey, {});
+}
+
+function computeTrend(exerciseName){
+  const last = findLastSession(exerciseName, editSessionId);
+  const prev = findPreviousSession(exerciseName, editSessionId);
+  if(!last || !prev) return {trend:null, trendPct:null};
+  const curBest = bestSet(last.exercise.sets);
+  const prevBest = bestSet(prev.exercise.sets);
+  const curEst = est1RM(curBest.weight, curBest.reps);
+  const prevEst = est1RM(prevBest.weight, prevBest.reps);
+  const trend = curEst > prevEst + 1e-9 ? 'up' : curEst < prevEst - 1e-9 ? 'down' : 'flat';
+  const trendPct = prevEst > 0 ? Math.round(((curEst - prevEst) / prevEst) * 100) : 0;
+  return {trend, trendPct};
+}
+function buildBaseState(dayKey){
+  const overrides = loadVariants();
+  return DAYS[dayKey].exercises.map(ex=>{
+    const effName = (ex.variants && overrides[dayKey + '|' + ex.name]) || ex.name;
+    const last = findLastSession(effName, editSessionId);
+    const lastSets = last ? last.exercise.sets : null;
+    const sets = lastSets
+      ? lastSets.map(s=>({weight:s.weight, reps:'', done:false}))
+      : [0,1,2].map(()=>({weight:ex.seed, reps:'', done:false}));
+    const {trend, trendPct} = computeTrend(effName);
+    return {
+      name: effName, baseName: ex.name, variants: ex.variants || null,
+      target: ex.target, seed: ex.seed,
+      lastSets,
+      suggestion: suggestTarget(ex, lastSets),
+      priorBest: priorBestEst1RM(effName, editSessionId),
+      trend, trendPct,
+      sets
+    };
+  });
+}
+function applyOverlay(overlay, includeDone){
+  overlay.forEach(oex=>{
+    const ws = workoutState.find(w=>w.name===oex.name);
+    if(ws && Array.isArray(oex.sets)){
+      ws.sets = oex.sets.map(s=>({weight:s.weight, reps:s.reps, done: includeDone ? !!s.done : false}));
+    }
+  });
+}
+
+function openWorkout(dayKey, opts){
+  opts = opts || {};
+  currentDayKey = dayKey;
+  editSessionId = null; editSessionDate = null; editSessionDay = null; workoutNotes = '';
+  prFlags = {};
+  let overlay = null, headerEditDate = null, includeDone = false;
+
+  if(opts.editSession){
+    const s = opts.editSession;
+    editSessionId = s.id; editSessionDate = s.date; editSessionDay = s.day;
+    workoutNotes = s.notes || '';
+    overlay = s.exercises; headerEditDate = s.date;
+  } else if(opts.draft){
+    const d = opts.draft;
+    editSessionId = d.editSessionId || null; editSessionDate = d.date || null; editSessionDay = d.day || null;
+    workoutNotes = d.notes || '';
+    overlay = d.exercises; includeDone = true;
+    headerEditDate = editSessionId ? editSessionDate : null;
+  }
+
+  workoutState = buildBaseState(dayKey);
+  if(overlay) applyOverlay(overlay, includeDone);
+
+  document.getElementById('workout-title').textContent = `${dayKey} – ${DAYS[dayKey].label}`;
+  const iconEl = document.getElementById('workout-icon');
+  if(iconEl) iconEl.innerHTML = DAY_ICONS[dayKey] || '';
+  const dateEl = document.getElementById('workout-date');
+  if(headerEditDate){
+    dateEl.textContent = 'Editing · ' + formatDateHuman(headerEditDate);
+  } else {
+    dateEl.textContent = new Date().toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  }
+  document.getElementById('workout-notes').value = workoutNotes;
+
+  renderExerciseList();
+  showScreen('screen-workout');
+  acquireWakeLock();
+}
+
+function renderExerciseList(){
+  const container = document.getElementById('exercise-list');
+  container.innerHTML = '';
+  workoutState.forEach((ex, exIdx)=>{
+    const card = document.createElement('div');
+    card.className = 'card enter';
+    card.style.setProperty('--i', exIdx);
+    card.innerHTML = `
+      <div class="ex-head">
+        <h3 class="tap" onclick="showProgression('${jsStr(ex.name)}')">${escapeHtml(ex.name)}</h3>
+        ${ex.variants ? `<button class="variant-btn" onclick="openVariantPicker(${exIdx})" aria-label="Change variant">${ICON_CHEVRON}</button>` : ''}
+      </div>
+      <div class="target">${escapeHtml(ex.target)}</div>
+      <div class="lasttime">Last time: ${formatSets(ex.lastSets)}${trendBadge(ex.trend, ex.trendPct)}</div>
+      ${ex.suggestion ? `<div class="suggest">${suggestText(ex.suggestion)}</div>` : ''}
+      <div class="set-rows" id="rows-${exIdx}"></div>
+      <button class="add-set-btn" onclick="addSetRow(${exIdx})">${ICON_PLUS} Add set</button>
+    `;
+    container.appendChild(card);
+    renderSetRows(exIdx);
+  });
+}
+
+let variantPickerCtx = null; // {type:'workout',exIdx} | {type:'pr',slotIdx}
+function fillVariantPicker(title, variants, currentName, noDataSet){
+  document.getElementById('variant-title').textContent = title;
+  document.getElementById('variant-list').innerHTML = variants.map(v=>
+    `<button class="${v===currentName?'is-current':''}" onclick="chooseVariant('${jsStr(v)}')">${escapeHtml(v)}${noDataSet && noDataSet.has(v) ? '<span class="variant-no-data">(no data yet)</span>' : ''}</button>`
+  ).join('');
+  document.getElementById('variant-overlay').classList.add('active');
+}
+function openVariantPicker(exIdx){
+  const ex = workoutState[exIdx];
+  if(!ex || !ex.variants) return;
+  variantPickerCtx = {type:'workout', exIdx};
+  fillVariantPicker(ex.baseName, ex.variants, ex.name);
+}
+function hasAnyData(name, sessions){
+  return sessions.some(s=>{
+    const ex = s.exercises.find(e=>e.name===name);
+    return ex && ex.sets && ex.sets.length > 0;
+  });
+}
+function openPRVariantPicker(slotIdx){
+  const slot = prSlots[slotIdx];
+  if(!slot || !slot.variants) return;
+  variantPickerCtx = {type:'pr', slotIdx};
+  const sessions = loadData().sessions;
+  const noDataSet = new Set(slot.variants.filter(v => !hasAnyData(v, sessions)));
+  fillVariantPicker(slot.baseName, slot.variants, slot.name, noDataSet);
+}
+function closeVariantPicker(){ document.getElementById('variant-overlay').classList.remove('active'); variantPickerCtx = null; }
+function chooseVariant(name){
+  const ctx = variantPickerCtx;
+  if(!ctx) return;
+  if(ctx.type === 'workout'){
+    const ex = workoutState[ctx.exIdx];
+    if(!ex) return;
+    saveVariant(currentDayKey, ex.baseName, name);
+    ex.name = name;
+    const last = findLastSession(name, editSessionId);
+    ex.lastSets = last ? last.exercise.sets : null;
+    ex.suggestion = suggestTarget({target:ex.target}, ex.lastSets);
+    ex.priorBest = priorBestEst1RM(name, editSessionId);
+    const t = computeTrend(name);
+    ex.trend = t.trend; ex.trendPct = t.trendPct;
+    closeVariantPicker();
+    saveDraft();
+    renderExerciseList();
+  } else if(ctx.type === 'pr'){
+    const slot = prSlots[ctx.slotIdx];
+    if(!slot) return;
+    // Keep every day slot that shares this exercise identity (e.g. Tue+Fri Bicep
+    // Curls) in sync, since the PR tab shows one row per exercise, not per day.
+    slot.dayKeys.forEach(dayKey => saveVariant(dayKey, slot.baseName, name));
+    closeVariantPicker();
+    renderPRs();
+  }
+}
+
+function valAttr(v){ return (v!=='' && v!==null && v!==undefined) ? v : ''; }
+
+function renderSetRows(exIdx){
+  const ex = workoutState[exIdx];
+  const c = document.getElementById(`rows-${exIdx}`);
+  c.innerHTML = ex.sets.map((s, i)=>`
+    <div class="set-row${s.done ? ' done':''}" id="row-${exIdx}-${i}">
+      <button class="done-btn" onclick="toggleDone(${exIdx},${i})">${s.done ? ICON_CHECK : (i+1)}</button>
+      <input type="number" inputmode="decimal" step="0.5" placeholder="kg" value="${valAttr(s.weight)}"
+        oninput="onSetInput(${exIdx},${i},'weight',this.value)">
+      <input type="number" inputmode="numeric" step="1" placeholder="reps" value="${valAttr(s.reps)}"
+        oninput="onSetInput(${exIdx},${i},'reps',this.value)">
+      <span class="pr-badge" id="pr-${exIdx}-${i}" style="display:none;">${ICON_STAR}PR</span>
+      <button class="del-btn" aria-label="Delete set" onclick="deleteSetRow(${exIdx},${i})">${ICON_TRASH}</button>
+    </div>
+  `).join('');
+  ex.sets.forEach((s, i)=> refreshPR(exIdx, i));
+}
+
+function refreshPR(exIdx, setIdx){
+  const ex = workoutState[exIdx];
+  const set = ex.sets[setIdx];
+  const span = document.getElementById(`pr-${exIdx}-${setIdx}`);
+  if(!span) return;
+  const w = parseFloat(set.weight), r = parseInt(set.reps,10);
+  const isPR = !isNaN(w) && !isNaN(r) && r > 0 && ex.priorBest > 0 && est1RM(w,r) > ex.priorBest + 1e-9;
+  span.style.display = isPR ? 'inline-block' : 'none';
+  const key = `${exIdx}-${setIdx}`;
+  if(isPR && !prFlags[key]){
+    span.classList.remove('stamp'); void span.offsetWidth; span.classList.add('stamp');
+  }
+  prFlags[key] = isPR;
+}
+
+function onSetInput(exIdx, setIdx, field, value){
+  workoutState[exIdx].sets[setIdx][field] = value;
+  refreshPR(exIdx, setIdx);
+  saveDraft();
+}
+function toggleDone(exIdx, setIdx){
+  const s = workoutState[exIdx].sets[setIdx];
+  s.done = !s.done;
+  renderSetRows(exIdx);
+  if(s.done){
+    const btn = document.querySelector(`#row-${exIdx}-${setIdx} .done-btn`);
+    if(btn){ btn.classList.add('pop'); btn.addEventListener('animationend', ()=>btn.classList.remove('pop'), {once:true}); }
+  }
+  saveDraft();
+}
+function addSetRow(exIdx){
+  const ex = workoutState[exIdx];
+  const last = ex.sets[ex.sets.length-1];
+  ex.sets.push({weight: last ? last.weight : ex.seed, reps:'', done:false});
+  renderSetRows(exIdx);
+  saveDraft();
+}
+function deleteSetRow(exIdx, setIdx){
+  workoutState[exIdx].sets.splice(setIdx, 1);
+  renderSetRows(exIdx);
+  saveDraft();
+}
+function onNotesInput(value){
+  workoutNotes = value;
+  saveDraft();
+}
+
+function saveDraft(){
+  if(!currentDayKey) return;
+  const draft = {
+    dayKey: currentDayKey,
+    editSessionId: editSessionId || null,
+    date: editSessionDate || null,
+    day: editSessionDay || null,
+    notes: workoutNotes || '',
+    exercises: workoutState.map(ex=>({
+      name: ex.name,
+      sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps, done:!!s.done}))
+    }))
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+/* ---------------- improve modal + finish ---------------- */
+function openImproveModal(){
+  document.getElementById('improve-overlay').classList.add('active');
+}
+function closeImproveModal(){
+  document.getElementById('improve-overlay').classList.remove('active');
+}
+function finishWorkout(improved){
+  closeImproveModal();
+
+  const exercises = workoutState.map(ex=>{
+    const sets = ex.sets
+      .map(s=>({weight: parseFloat(s.weight), reps: parseInt(s.reps,10)}))
+      .filter(s=> !isNaN(s.weight) && !isNaN(s.reps) && s.reps > 0);
+    return {name: ex.name, sets};
+  }).filter(ex=> ex.sets.length > 0);
+
+  if(exercises.length === 0){
+    toast('No sets logged — nothing saved');
+    clearDraft();
+    editSessionId = null; editSessionDate = null; editSessionDay = null; workoutNotes = '';
+    releaseWakeLock();
+    showScreen('screen-home');
+    renderHome();
+    return;
+  }
+
+  const wasEdit = !!editSessionId;
+  const now = new Date();
+  const session = {
+    id: wasEdit ? editSessionId : now.toISOString(),
+    date: wasEdit ? editSessionDate : formatDateLocal(now),
+    day: wasEdit ? editSessionDay : currentDayKey,
+    improved: improved,
+    exercises: exercises
+  };
+  const notes = (workoutNotes || '').trim();
+  if(notes) session.notes = notes;
+
+  const data = loadData();
+  if(wasEdit){
+    const idx = data.sessions.findIndex(s=>s.id===editSessionId);
+    if(idx >= 0) data.sessions[idx] = session; else data.sessions.push(session);
+  } else {
+    data.sessions.push(session);
+  }
+  saveData(data);
+  clearDraft();
+  editSessionId = null; editSessionDate = null; editSessionDay = null; workoutNotes = '';
+  releaseWakeLock();
+  toast(wasEdit ? 'Workout updated' : 'Workout saved');
+  showScreen('screen-home');
+  renderHome();
+}
+
+/* ---------------- CALENDAR ---------------- */
+function isScheduledDate(d){ return DOW_TO_KEY[d.getDay()] !== undefined; }
+
+// Credits a session to the nearest calendar occurrence (within 3 days either way) of the
+// weekday its tagged day normally falls on, so doing e.g. "Monday's" workout a few days
+// early or late (a session's `date` need not match its `day`) still fills that slot.
+function creditedDateFor(session){
+  const targetDow = DAY_TO_DOW[session.day];
+  if(targetDow === undefined) return session.date;
+  const [y,m,d] = session.date.split('-').map(Number);
+  const actual = new Date(y, m-1, d);
+  let diff = (targetDow - actual.getDay() + 7) % 7;
+  if(diff > 3) diff -= 7;
+  const credited = new Date(actual); credited.setDate(actual.getDate() + diff);
+  return formatDateLocal(credited);
+}
+function buildCreditedDatesSet(sessions){
+  return new Set(sessions.map(creditedDateFor));
+}
+
+function getWeekDates(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  // Anchor on the most recent Sunday rather than Monday, so a Sunday session logged for
+  // the upcoming Monday (e.g. done early because Monday itself is busy) lands in the same
+  // week window being displayed, instead of still pointing at the Monday that just passed.
+  const sunday = new Date(today); sunday.setDate(today.getDate() - today.getDay());
+  const map = {};
+  for(let i=0;i<7;i++){
+    const d = new Date(sunday); d.setDate(sunday.getDate()+i);
+    const key = DOW_TO_KEY[d.getDay()];
+    if(key) map[key] = formatDateLocal(d);
+  }
+  return map;
+}
+
+function computeStreaks(activeDatesSet){
+  if(activeDatesSet.size === 0) return {current:0, longest:0};
+
+  let cursor = new Date(); cursor.setHours(0,0,0,0);
+  if(isScheduledDate(cursor) && !activeDatesSet.has(formatDateLocal(cursor))){
+    cursor.setDate(cursor.getDate()-1);
+  }
+  let current = 0, safety = 0;
+  while(safety < 3650){
+    if(isScheduledDate(cursor)){
+      if(activeDatesSet.has(formatDateLocal(cursor))) current++;
+      else break;
+    }
+    cursor.setDate(cursor.getDate()-1);
+    safety++;
+  }
+
+  const allDates = Array.from(activeDatesSet).sort();
+  const [ey,em,ed] = allDates[0].split('-').map(Number);
+  let walker = new Date(ey, em-1, ed);
+  const today = new Date(); today.setHours(0,0,0,0);
+  let longest = 0, run = 0;
+  safety = 0;
+  while(walker <= today && safety < 3650){
+    if(isScheduledDate(walker)){
+      if(activeDatesSet.has(formatDateLocal(walker))){ run++; longest = Math.max(longest, run); }
+      else run = 0;
+    }
+    walker.setDate(walker.getDate()+1);
+    safety++;
+  }
+
+  return {current, longest};
+}
+
+function formatHour12(h){
+  const period = h>=12 ? 'PM' : 'AM';
+  let hour12 = h % 12; if(hour12===0) hour12 = 12;
+  return `${hour12} ${period}`;
+}
+
+function statTile(label, valueHtml, idx, icon){
+  return `<div class="stat-tile enter" style="--i:${idx}"><div class="stat-label">${label}</div><div class="stat-value">${icon||''}${valueHtml}</div></div>`;
+}
+function statTileNum(label, id, idx, icon){
+  return `<div class="stat-tile enter" style="--i:${idx}"><div class="stat-label">${label}</div><div class="stat-value">${icon||''}<span id="${id}">0</span></div></div>`;
+}
+function animateCount(el, target, suffix, duration){
+  if(!el) return;
+  suffix = suffix || '';
+  duration = duration || 550;
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now-start)/duration);
+    const eased = 1 - Math.pow(1-p, 3);
+    const val = Math.round(target*eased);
+    el.textContent = val.toLocaleString() + suffix;
+    if(p < 1) requestAnimationFrame(tick);
+    else el.textContent = target.toLocaleString() + suffix;
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderCalendar(){
+  const data = loadData();
+  const sessions = data.sessions;
+
+  let totalSets = 0, totalVolume = 0;
+  const activeDatesSet = new Set();
+  const dayCounts = {};
+  const hourCounts = {};
+  sessions.forEach(s=>{
+    activeDatesSet.add(s.date);
+    dayCounts[s.day] = (dayCounts[s.day]||0) + 1;
+    const d = new Date(s.id);
+    if(!isNaN(d)){ const h = d.getHours(); hourCounts[h] = (hourCounts[h]||0)+1; }
+    s.exercises.forEach(ex=>{
+      ex.sets.forEach(set=>{
+        totalSets++;
+        totalVolume += set.weight * set.reps;
+      });
+    });
+  });
+
+  let favoriteDay = '—', favCount = 0;
+  DAY_ORDER.forEach(k=>{
+    const c = dayCounts[k] || 0;
+    if(c > favCount){ favCount = c; favoriteDay = DAYS[k].label; }
+  });
+
+  let peakHour = null, peakCount = 0;
+  Object.keys(hourCounts).forEach(h=>{
+    if(hourCounts[h] > peakCount){ peakCount = hourCounts[h]; peakHour = +h; }
+  });
+  const peakHourText = peakHour===null ? '—' : formatHour12(peakHour);
+
+  const {current, longest} = computeStreaks(buildCreditedDatesSet(sessions));
+
+  document.getElementById('calendar-stats').innerHTML = [
+    statTileNum('Sessions', 'stat-sessions', 0, ICON_LIST),
+    statTileNum('Total Sets', 'stat-sets', 1, ICON_LAYERS),
+    statTileNum('Total Volume', 'stat-volume', 2, ICON_PLATE),
+    statTileNum('Active Days', 'stat-active', 3, ICON_CALENDAR_CHECK),
+    statTile('Current Streak', `${current} ${current===1?'day':'days'}`, 4, ICON_FLAME),
+    statTile('Longest Streak', `${longest} ${longest===1?'day':'days'}`, 5, ICON_FLAME),
+    statTile('Peak Hour', escapeHtml(peakHourText), 6, ICON_CLOCK),
+    statTile('Favorite Day', escapeHtml(favoriteDay), 7, ICON_MEDAL),
+  ].join('');
+
+  animateCount(document.getElementById('stat-sessions'), sessions.length, '', 500);
+  animateCount(document.getElementById('stat-sets'), totalSets, '', 550);
+  animateCount(document.getElementById('stat-volume'), totalVolume, 'kg', 650);
+  animateCount(document.getElementById('stat-active'), activeDatesSet.size, '', 500);
+
+  renderHeatmap(sessions);
+}
+
+function renderHeatmap(sessions){
+  const setsByDate = {};
+  sessions.forEach(s=>{
+    let sets = 0;
+    s.exercises.forEach(ex=> sets += ex.sets.length);
+    setsByDate[s.date] = (setsByDate[s.date]||0) + sets;
+  });
+  const bonusDatesSet = new Set(loadBonusSessions().map(s=>s.date));
+
+  const dateKeys = Array.from(new Set([...Object.keys(setsByDate), ...bonusDatesSet]));
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let start;
+  if(dateKeys.length){
+    const [y,m,d] = dateKeys.sort()[0].split('-').map(Number);
+    start = new Date(y, m-1, d);
+  } else {
+    start = new Date(today);
+    start.setDate(start.getDate() - 7*12);
+  }
+  start.setDate(start.getDate() - start.getDay()); // snap back to Sunday
+
+  const end = new Date(today);
+  end.setDate(end.getDate() + (6 - end.getDay())); // snap forward to Saturday
+
+  function levelFor(count){
+    if(!count) return 0;
+    if(count <= 4) return 1;
+    if(count <= 8) return 2;
+    if(count <= 12) return 3;
+    return 4;
+  }
+
+  const weeks = [];
+  let week = [];
+  let cursor = new Date(start);
+  while(cursor <= end){
+    week.push(new Date(cursor));
+    if(week.length === 7){ weeks.push(week); week = []; }
+    cursor.setDate(cursor.getDate()+1);
+  }
+  if(week.length) weeks.push(week);
+
+  const html = weeks.map(w=>{
+    const cells = w.map(d=>{
+      const key = formatDateLocal(d);
+      const count = setsByDate[key] || 0;
+      // A day with a real logged workout always wins the cell's color; bonus-only days
+      // (no real session that date) get a distinct color instead of the intensity scale.
+      const isBonusOnly = count === 0 && bonusDatesSet.has(key);
+      const cls = isBonusOnly ? 'heat-cell bonus' : `heat-cell lvl-${levelFor(count)}`;
+      const isFuture = d > today;
+      const clickable = count > 0 || isBonusOnly;
+      return `<div class="${cls}${isFuture?' future':''}"${clickable?` onclick="showCalendarDay('${key}')"`:''} title="${key}"></div>`;
+    }).join('');
+    return `<div class="heat-week">${cells}</div>`;
+  }).join('');
+
+  const container = document.getElementById('calendar-heatmap');
+  container.innerHTML = `<div class="heat-grid">${html}</div>`;
+  container.scrollLeft = container.scrollWidth;
+}
+
+function showCalendarDay(dateStr){
+  const data = loadData();
+  const sessions = data.sessions.filter(s=>s.date===dateStr);
+  const bonus = loadBonusSessions().find(s=>s.date===dateStr);
+  if(!sessions.length && !bonus) return;
+  document.getElementById('calendar-day-title').textContent = formatDateHuman(dateStr);
+  const realHtml = sessions.map(session=>`
+    <div class="session-item">
+      <div class="session-head">
+        <div><div class="date">${escapeHtml(session.day)}</div></div>
+        <div class="count">${session.exercises.length} exercises</div>
+      </div>
+      <div class="session-body open">
+        ${session.exercises.map(ex=>`
+          <div class="session-ex">
+            <span class="exname" onclick="showProgression('${jsStr(ex.name)}')">${escapeHtml(ex.name)}</span>
+            <div class="sets">${formatSets(ex.sets)}</div>
+          </div>
+        `).join('')}
+        <div class="session-improve">Improved: ${escapeHtml(session.improved || '—')}</div>
+        ${session.notes ? `<div class="session-notes">${escapeHtml(session.notes)}</div>` : ''}
+        <div class="session-actions">
+          <button onclick="closeCalendarDay();editSessionById('${jsStr(session.id)}')">Edit</button>
+          <button class="del" onclick="deleteSessionById('${jsStr(session.id)}')">Delete</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('calendar-day-list').innerHTML = realHtml + bonusSectionHtml(dateStr);
+  document.getElementById('calendar-day-overlay').classList.add('active');
+}
+function closeCalendarDay(){
+  document.getElementById('calendar-day-overlay').classList.remove('active');
+  calendarBonusEditDate = null;
+  calendarBonusEditState = null;
+}
+function deleteSessionById(id){
+  if(!confirm('Delete this workout permanently?')) return;
+  const data = loadData();
+  data.sessions = data.sessions.filter(s=>s.id !== id);
+  saveData(data);
+  closeCalendarDay();
+  renderCalendar();
+}
+// Rest-day bonus entries get the same Edit/Delete affordance as real sessions, but "edit"
+// means an in-place set-row editor (reusing the suggested-today card's UI) rather than the
+// full workout screen, since a bonus entry has no day/variant/improved-prompt flow of its own.
+let calendarBonusEditDate = null;
+let calendarBonusEditState = null;
+function bonusSectionHtml(dateStr){
+  const bonus = loadBonusSessions().find(s=>s.date===dateStr);
+  if(!bonus) return '';
+  const unitMap = getBonusUnitMap();
+  if(calendarBonusEditDate === dateStr && calendarBonusEditState){
+    const st = calendarBonusEditState;
+    return `
+      <div class="session-item">
+        <div class="session-head">
+          <div><div class="date">Bonus</div></div>
+          <div class="count">${st.exercises.length} exercise${st.exercises.length===1?'':'s'}</div>
+        </div>
+        <div class="session-body open">
+          ${st.exercises.map((ex, exIdx)=>`
+            <div class="rest-exercise">
+              <div class="rest-exercise-name">${escapeHtml(ex.name)}</div>
+              <div class="set-rows">
+                ${ex.sets.map((s, setIdx)=>`
+                  <div class="set-row">
+                    <button class="done-btn" disabled>${setIdx+1}</button>
+                    <input type="number" inputmode="numeric" step="1" placeholder="${ex.unit==='sec'?'sec':'reps'}"
+                      value="${valAttr(s.reps)}" oninput="onCalendarBonusInput(${exIdx},${setIdx},this.value)">
+                    <button class="del-btn" aria-label="Delete set" onclick="deleteCalendarBonusSetRow(${exIdx},${setIdx})">${ICON_TRASH}</button>
+                  </div>
+                `).join('')}
+              </div>
+              <button class="add-set-btn" onclick="addCalendarBonusSetRow(${exIdx})">${ICON_PLUS} Add set</button>
+            </div>
+          `).join('')}
+          <div class="session-actions">
+            <button onclick="finishCalendarBonusEdit('${jsStr(dateStr)}')">Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="session-item">
+      <div class="session-head">
+        <div><div class="date">Bonus</div></div>
+        <div class="count">${bonus.exercises.length} exercise${bonus.exercises.length===1?'':'s'}</div>
+      </div>
+      <div class="session-body open">
+        ${bonus.exercises.map(ex=>`
+          <div class="session-ex">
+            <span class="exname" onclick="showProgression('${jsStr(ex.name)}')">${escapeHtml(ex.name)}</span>
+            <div class="sets">${ex.sets.map(s=> unitMap[ex.name]==='sec' ? `${s.reps} sec` : `${s.reps} reps`).join(', ')}</div>
+          </div>
+        `).join('')}
+        <div class="session-actions">
+          <button onclick="editBonusById('${jsStr(dateStr)}')">Edit</button>
+          <button class="del" onclick="deleteBonusById('${jsStr(dateStr)}')">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function editBonusById(dateStr){
+  const bonus = loadBonusSessions().find(s=>s.date===dateStr);
+  if(!bonus) return;
+  const unitMap = getBonusUnitMap();
+  calendarBonusEditDate = dateStr;
+  calendarBonusEditState = {
+    exercises: bonus.exercises.map(ex=>({
+      name: ex.name,
+      unit: unitMap[ex.name] || 'reps',
+      sets: ex.sets.map(s=>({reps: s.reps}))
+    }))
+  };
+  showCalendarDay(dateStr);
+}
+function onCalendarBonusInput(exIdx, setIdx, value){
+  calendarBonusEditState.exercises[exIdx].sets[setIdx].reps = value;
+  saveBonusForDate(calendarBonusEditDate, calendarBonusEditState.exercises);
+  if(calendarBonusEditDate === formatDateLocal(new Date())) restDayState = null;
+}
+function addCalendarBonusSetRow(exIdx){
+  calendarBonusEditState.exercises[exIdx].sets.push({reps:''});
+  saveBonusForDate(calendarBonusEditDate, calendarBonusEditState.exercises);
+  showCalendarDay(calendarBonusEditDate);
+}
+function deleteCalendarBonusSetRow(exIdx, setIdx){
+  calendarBonusEditState.exercises[exIdx].sets.splice(setIdx, 1);
+  saveBonusForDate(calendarBonusEditDate, calendarBonusEditState.exercises);
+  if(calendarBonusEditDate === formatDateLocal(new Date())) restDayState = null;
+  showCalendarDay(calendarBonusEditDate);
+}
+function finishCalendarBonusEdit(dateStr){
+  calendarBonusEditDate = null;
+  calendarBonusEditState = null;
+  renderCalendar();
+  const data = loadData();
+  const stillHasSessions = data.sessions.some(s=>s.date===dateStr);
+  const stillHasBonus = loadBonusSessions().some(s=>s.date===dateStr);
+  if(!stillHasSessions && !stillHasBonus){ closeCalendarDay(); return; }
+  showCalendarDay(dateStr);
+}
+function deleteBonusById(dateStr){
+  if(!confirm('Delete this rest-day entry permanently?')) return;
+  const sessions = loadBonusSessions().filter(s=>s.date!==dateStr);
+  localStorage.setItem(BONUS_KEY, JSON.stringify(sessions));
+  if(dateStr === formatDateLocal(new Date())) restDayState = null;
+  const data = loadData();
+  const stillHasSessions = data.sessions.some(s=>s.date===dateStr);
+  renderCalendar();
+  if(!stillHasSessions){ closeCalendarDay(); return; }
+  showCalendarDay(dateStr);
+}
+function editSessionById(id){
+  const data = loadData();
+  const session = data.sessions.find(s=>s.id === id);
+  if(!session) return;
+  const existingDraft = loadDraft();
+  if(existingDraft && existingDraft.dayKey){
+    if(!confirm('You have an unfinished workout. Discard it and edit this session?')) return;
+    clearDraft();
+  }
+  openWorkout(session.day, {editSession: session});
+}
+
+/* ---------------- progression modal ---------------- */
+function showProgression(exerciseName){
+  const data = loadData();
+  const bonusSessions = loadBonusSessions().map(s=>({...s, id: s.date+'T00:00:00.000Z'}));
+  const unit = getBonusUnitMap()[exerciseName];
+  document.getElementById('progression-title').textContent = exerciseName;
+  const list = document.getElementById('progression-list');
+  const sorted = [...data.sessions, ...bonusSessions].sort((a,b)=> (b.id||'').localeCompare(a.id||''));
+  const entries = [];
+  sorted.forEach(session=>{
+    const ex = session.exercises.find(e=>e.name===exerciseName);
+    if(ex && ex.sets && ex.sets.length){
+      const best = bestSet(ex.sets);
+      entries.push({date: session.date, best, est: est1RM(best.weight, best.reps)});
+    }
+  });
+  const maxEst = entries.reduce((m,e)=>Math.max(m,e.est), 0);
+  let prShown = false;
+  list.innerHTML = entries.length ? entries.map(e=>{
+    const isPR = !prShown && maxEst > 0 && e.est === maxEst;
+    if(isPR) prShown = true;
+    return `<div class="progression-row">
+        <span class="pdate">${formatDateHuman(e.date)}</span>
+        <span class="pbest">${formatBest(e.best, unit)}${isPR ? ` <span class="pr-badge stamp" style="display:inline-block;">${ICON_STAR}PR</span>` : ''}</span>
+      </div>`;
+  }).join('') : '<div class="empty-note">No data yet</div>';
+  document.getElementById('progression-overlay').classList.add('active');
+}
+function closeProgressionModal(){
+  document.getElementById('progression-overlay').classList.remove('active');
+}
+
+/* ---------------- PR list ---------------- */
+// One entry per distinct exercise slot (base name), each remembering every day
+// it appears on so a variant switch here can stay in sync across those days.
+function getExerciseSlots(){
+  const map = new Map();
+  DAY_ORDER.forEach(dayKey=>{
+    DAYS[dayKey].exercises.forEach(ex=>{
+      if(!map.has(ex.name)) map.set(ex.name, {baseName: ex.name, variants: ex.variants || null, dayKeys: []});
+      map.get(ex.name).dayKeys.push(dayKey);
+    });
+  });
+  const bonusUnits = getBonusUnitMap();
+  getAllBonusExerciseNames().forEach(name=>{
+    if(!map.has(name)) map.set(name, {baseName: name, variants: null, dayKeys: [], unit: bonusUnits[name]});
+  });
+  return Array.from(map.values());
+}
+// Mirrors the effective-name lookup in buildBaseState, so the PR tab shows
+// whichever variant is currently active for that exercise in the workout.
+function resolveSlotName(slot){
+  if(!slot.variants) return slot.baseName;
+  const overrides = loadVariants();
+  for(const dayKey of slot.dayKeys){
+    const v = overrides[dayKey + '|' + slot.baseName];
+    if(v) return v;
+  }
+  return slot.baseName;
+}
+let prSlots = [];
+function renderPRs(){
+  const data = loadData();
+  const bonusSessions = loadBonusSessions();
+  const container = document.getElementById('pr-list');
+  prSlots = getExerciseSlots().map(slot=>{
+    const name = resolveSlotName(slot);
+    const best = bestSetAcrossSessions(name, [data.sessions, bonusSessions]);
+    return {...slot, name, best};
+  });
+  prSlots.sort((a,b)=>{
+    if(!!a.best !== !!b.best) return a.best ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  container.innerHTML = prSlots.map((r,idx)=>`
+    <div class="session-item">
+      <div class="session-head">
+        <div class="pr-title-wrap">
+          <div class="date tap" onclick="showProgression('${jsStr(r.name)}')">${escapeHtml(r.name)}</div>
+          ${r.variants ? `<button class="variant-btn" onclick="openPRVariantPicker(${idx})" aria-label="Change variant">${ICON_CHEVRON}</button>` : ''}
+        </div>
+        <div class="count" onclick="showProgression('${jsStr(r.name)}')">${formatBest(r.best, r.unit)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------------- manifest + icon (self-contained) ---------------- */
+(function setupPWA(){
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+    <rect width="192" height="192" rx="40" fill="#14171a"/>
+    <g stroke="#ff6b47" stroke-width="13" stroke-linecap="round">
+      <line x1="30" y1="96" x2="162" y2="96"/>
+      <line x1="46" y1="66" x2="46" y2="126"/>
+      <line x1="30" y1="76" x2="30" y2="116"/>
+      <line x1="146" y1="66" x2="146" y2="126"/>
+      <line x1="162" y1="76" x2="162" y2="116"/>
+    </g>
+  </svg>`;
+  const iconUrl = URL.createObjectURL(new Blob([iconSvg], {type:'image/svg+xml'}));
+
+  const linkIcon = document.createElement('link');
+  linkIcon.rel = 'icon'; linkIcon.href = iconUrl;
+  document.head.appendChild(linkIcon);
+
+  const linkApple = document.createElement('link');
+  linkApple.rel = 'apple-touch-icon'; linkApple.href = iconUrl;
+  document.head.appendChild(linkApple);
+
+  const manifest = {
+    name: 'Gym Log', short_name: 'Gym Log',
+    start_url: location.href,
+    scope: location.href.replace(/[^/]*$/, ''),
+    display: 'standalone',
+    background_color: '#14171a', theme_color: '#14171a',
+    icons: [
+      {src: iconUrl, sizes: '192x192', type: 'image/svg+xml'},
+      {src: iconUrl, sizes: '512x512', type: 'image/svg+xml'}
+    ]
+  };
+  const manifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type:'application/json'}));
+  const linkManifest = document.createElement('link');
+  linkManifest.rel = 'manifest'; linkManifest.href = manifestUrl;
+  document.head.appendChild(linkManifest);
+})();
+
+/* ---------------- init ---------------- */
+migrateExerciseNames();
+applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+renderHome();
+</script>
+</body>
+</html>
