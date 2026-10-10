@@ -36,9 +36,10 @@ on iPhone, files opened from the Files app can't keep data.)
 **Training**
 - Weekly schedule *or* rotation ("up next") planning, with weekly targets and week streaks
 - Routines editor: sets, rep ranges, rest times, supersets, start weights, rest-day routines
-- 6 ready-made programs (incl. the original 4-day split), recommendation during onboarding
-- Exercise library with 150+ exercises, muscles, equipment, how-to steps and common mistakes;
-  custom exercises
+- 8 ready-made programs (incl. the original 4-day split, full gym, basic gym, home and bodyweight-only),
+  with a recommendation during onboarding based on your goal, experience, equipment and days per week
+- Exercise library with 170 exercises: muscles, equipment, how-to steps and common mistakes;
+  smart search (handles typos like "dumbell"), custom exercises
 - Fast set logging: previous-set column, ghost values, Enter-to-next, ±increment keypad bar,
   set types (warm-up / drop / failure), optional RPE, swap exercise, warm-up generator
 - Progressive-overload suggestions (double progression with deload / welcome-back guardrails)
@@ -57,6 +58,8 @@ on iPhone, files opened from the Files app can't keep data.)
 - Works offline once loaded, installable, keeps the screen awake during workouts
 - Android back button / iOS swipe-back close sheets and screens correctly
 - Undo for deletes, automatic safety snapshot before imports and resets
+- Data protection: the app never overwrites saved data it can't read, keeps an unfinished workout
+  if the phone runs out of storage, and syncs safely if it's open in two places
 
 ## For developers
 
