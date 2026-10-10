@@ -99,7 +99,7 @@
   --shadow-2:0 8px 24px rgba(15,23,42,.08);
   --shadow-3:0 18px 50px rgba(15,23,42,.18);
   --success:#047857; --success-soft:rgba(5,150,105,.12);
-  --warn:#b45309;    --warn-soft:rgba(217,119,6,.12);
+  --warn:#92400e;    --warn-soft:rgba(217,119,6,.12);
   --danger:#dc2626;  --danger-soft:rgba(220,38,38,.10);
   --info:#2563eb;    --info-soft:rgba(37,99,235,.10);
   --gold:#c99a1c; --gold-ink:#8f6a0a;
@@ -116,13 +116,13 @@
 :root[data-accent="rose"]{  --accent:#f43f5e; --accent-2:#fb7185; --accent-ink:#ff6f86; }
 :root[data-accent="teal"]{  --accent:#14b8a6; --accent-2:#2dd4bf; --accent-ink:#34d6c3; }
 :root[data-accent="gold"]{  --accent:#eab308; --accent-2:#facc15; --accent-ink:#f2c94c; }
-:root[data-theme="light"][data-accent="ember"]{ --accent-ink:#c2410c; }
-:root[data-theme="light"][data-accent="blue"]{  --accent-ink:#2563eb; }
-:root[data-theme="light"][data-accent="lime"]{  --accent:#4d9e1b; --accent-2:#65c728; --accent-ink:#3f8a12; }
+:root[data-theme="light"][data-accent="ember"]{ --accent-ink:#a8360a; }
+:root[data-theme="light"][data-accent="blue"]{  --accent-ink:#1d4ed8; }
+:root[data-theme="light"][data-accent="lime"]{  --accent:#4d9e1b; --accent-2:#65c728; --accent-ink:#2f6b0c; }
 :root[data-theme="light"][data-accent="violet"]{--accent-ink:#7c3aed; }
-:root[data-theme="light"][data-accent="rose"]{  --accent-ink:#e11d48; }
+:root[data-theme="light"][data-accent="rose"]{  --accent-ink:#be123c; }
 :root[data-theme="light"][data-accent="teal"]{  --accent:#0d9488; --accent-2:#14b8a6; --accent-ink:#0f766e; }
-:root[data-theme="light"][data-accent="gold"]{  --accent:#ca8a04; --accent-2:#eab308; --accent-ink:#a16207; }
+:root[data-theme="light"][data-accent="gold"]{  --accent:#ca8a04; --accent-2:#eab308; --accent-ink:#854d0e; }
 :root{
   --accent-grad:linear-gradient(135deg, var(--accent-2), var(--accent));
   --accent-soft:color-mix(in srgb, var(--accent) 15%, transparent);
@@ -607,9 +607,9 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;z-index:91;pointer
   :root{--gutter:24px;}
 }
 
-.sys-banner{position:relative;z-index:45;display:flex;align-items:center;gap:10px;padding:calc(var(--safe-top) + 8px) 16px 8px;background:var(--danger);color:#fff;font-size:13.5px;font-weight:650;}
+.sys-banner{position:relative;z-index:45;display:flex;align-items:center;gap:10px;padding:calc(var(--safe-top) + 8px) 16px 8px;background:#b42318;color:#fff;font-size:13.5px;font-weight:650;}
 .sys-banner svg{width:18px;height:18px;flex:none;}
-.sys-banner button{margin-left:auto;color:#fff;font-weight:800;text-decoration:underline;flex:none;}
+.sys-banner button{margin-left:auto;color:#fff;font-weight:800;text-decoration:underline;flex:none;min-height:40px;padding:0 10px;border-radius:8px;background:rgba(255,255,255,.14);text-decoration:none;}
 
 /* ---- keyboard open: get bottom chrome out of the way ---- */
 body.kbd-open .tabbar{transform:translateY(calc(100% + 48px));visibility:hidden;transition:transform var(--dur-3) var(--ease), visibility 0s linear var(--dur-3);}
@@ -710,7 +710,7 @@ body{touch-action:manipulation;}
 .hm-banner.hm-tone-info .hm-banner-ic{background:var(--info-soft);color:var(--info);}
 .hm-banner-txt{min-width:0;display:flex;flex-direction:column;}
 .hm-banner-t{font-weight:750;font-size:14.5px;letter-spacing:-.005em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hm-banner-x{font-size:12.5px;color:var(--text-2);margin-top:1px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hm-banner-x{font-size:12.5px;color:var(--text-2);margin-top:1px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .hm-banner-cta{flex:none;margin:0;padding:0 8px;font-size:14px;}
 
 /* "opened as a file" details sheet */
@@ -3421,6 +3421,7 @@ const Store = {
     }
     S = this.s = normalizeState(state);
     if(this.loadFailed) S.profile.onboarded = true; /* go to Home + recovery sheet, not onboarding */
+    S.meta.lastOpen = Date.now();
     S.active = null;
     if(activeRaw){ try{ S.active = sanitizeActive(JSON.parse(activeRaw)); }catch(e){ logError(e, 'store.active.parse'); } }
     else if(state.active) S.active = sanitizeActive(state.active);
@@ -3428,6 +3429,7 @@ const Store = {
     /* probe that writes work (private mode / disabled storage) */
     try{ localStorage.setItem(STORE_KEY + '.probe', '1'); localStorage.removeItem(STORE_KEY + '.probe'); }catch(e){ this.storageOk = false; }
     this._savedRev = this.rev;
+    /* baseline = what this instance considers saved (so a fresh instance is never 'dirty' and never overwrites another tab) */
     if(raw && !this.loadFailed){ try{ const c = Object.assign({}, S); delete c.active; this._lastJson = JSON.stringify(c); }catch(e){} }
     if(!raw && !this.loadFailed){ this.flush(true); if(S.active) this.flushActive(); }
     return migrated;
@@ -3480,16 +3482,30 @@ const Store = {
   on(fn){ this._listeners.push(fn); },
   emit(evt){ for(const fn of this._listeners){ try{ fn(evt); }catch(e){ logError(e, 'store.listener'); } } },
   /* Rollback snapshot written before destructive operations (import / reset). Returns true when a usable snapshot exists. */
+  /* Two slots: 'before reset' lives in its own key so later imports/merges can't overwrite it. */
+  _snapKey(reason){ return /reset/i.test(reason || '') ? SNAP_KEY + '.reset' : SNAP_KEY; },
   snapshot(reason){
     if(!S) return false;
+    const key = this._snapKey(reason);
     const hasData = S.sessions.length || S.templates.length || S.body.length;
-    if(!hasData && this.getSnapshot()) return true; /* nothing worth protecting — keep the older snapshot */
-    try{ return this._write(SNAP_KEY, JSON.stringify({at: Date.now(), reason: reason || '', state: Object.assign({}, S)})); }
+    let prev = null; try{ const r = localStorage.getItem(key); prev = r ? JSON.parse(r) : null; }catch(e){}
+    if(!hasData && prev) return true; /* nothing worth protecting — keep the older snapshot */
+    /* never replace a fuller snapshot with an emptier one of the same kind */
+    if(prev && prev.state && Array.isArray(prev.state.sessions) && prev.state.sessions.length > S.sessions.length * 2 + 5 && key === SNAP_KEY + '.reset') return true;
+    try{ return this._write(key, JSON.stringify({at: Date.now(), reason: reason || '', state: Object.assign({}, S)})); }
     catch(e){ logError(e, 'snapshot'); return false; }
   },
-  getSnapshot(){ try{ const r = localStorage.getItem(SNAP_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; } },
-  restoreSnapshot(){
-    const snap = this.getSnapshot(); if(!snap || !snap.state) return false;
+  /* all snapshots, newest first: [{key, at, reason, sessions, state}] */
+  getSnapshots(){
+    const out = [];
+    for(const key of [SNAP_KEY, SNAP_KEY + '.reset']){
+      try{ const r = localStorage.getItem(key); if(!r) continue; const o = JSON.parse(r); if(o && o.state) out.push(Object.assign({key, sessions: Array.isArray(o.state.sessions) ? o.state.sessions.length : 0}, o)); }catch(e){}
+    }
+    return out.sort((a, b) => (b.at || 0) - (a.at || 0));
+  },
+  getSnapshot(key){ const all = this.getSnapshots(); return (key ? all.find(x => x.key === key) : all[0]) || null; },
+  restoreSnapshot(key){
+    const snap = this.getSnapshot(key); if(!snap || !snap.state) return false;
     const active = sanitizeActive(snap.state.active) || S.active || null;
     this.loadFailed = null;
     S = this.s = normalizeState(snap.state); S.active = active;
@@ -3498,6 +3514,7 @@ const Store = {
   },
   /* Replace everything (used by import-replace and reset). */
   replace(newState){
+    try{ Object.keys(localStorage).forEach(k => { if(/^gymlog\.v2\.(trdraft|draft\.)/.test(k)) localStorage.removeItem(k); }); }catch(e){}
     const st = normalizeState(newState);
     const active = sanitizeActive(st.active);
     this.loadFailed = null;
@@ -3581,8 +3598,57 @@ Store.saveActiveSoon = debounce(() => Store.flushActive(), 250);
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden'){ Store.saveSoon.cancel(); Store.saveActiveSoon.cancel(); Store.flush(); if(S && S.active) Store.flushActive(); } });
 window.addEventListener('pagehide', () => { Store.flush(); if(S && S.active) Store.flushActive(); });
 /* another tab / the installed app saved data: adopt it (or merge it when we have unsaved changes) */
+/* 3-way merge of keyed lists: base = what this tab last saved/loaded, local = memory, inc = the other instance's save.
+   Deletions and edits from either side survive; an item changed on both sides keeps this tab's version. */
+function merge3List(base, local, inc, keyOf){
+  const J = (x) => JSON.stringify(x);
+  const bm = new Map((base || []).map(x => [keyOf(x), J(x)]));
+  const lm = new Map((local || []).map(x => [keyOf(x), x]));
+  const im = new Map((inc || []).map(x => [keyOf(x), x]));
+  const out = [];
+  const keys = new Set([...lm.keys(), ...im.keys()]);
+  for(const k of keys){
+    const l = lm.get(k), i = im.get(k), bj = bm.get(k);
+    if(l && i){ out.push(bj !== undefined && J(l) === bj ? i : l); continue; }
+    if(l && !i){ if(bj === undefined || J(l) !== bj) out.push(l); continue; }   /* removed elsewhere unless edited here */
+    if(i && !l){ if(bj === undefined || J(i) !== bj) out.push(i); continue; }   /* removed here unless edited elsewhere */
+  }
+  return out;
+}
+function merge3Obj(base, local, inc){
+  const J = (x) => JSON.stringify(x);
+  const out = {};
+  const keys = new Set([...Object.keys(local || {}), ...Object.keys(inc || {})]);
+  for(const k of keys){
+    const l = local ? local[k] : undefined, i = inc ? inc[k] : undefined, b = base ? base[k] : undefined;
+    if(l !== undefined && i !== undefined){ out[k] = J(l) === J(b) ? i : l; continue; }
+    if(l !== undefined){ if(b === undefined || J(l) !== J(b)) out[k] = l; continue; }
+    if(i !== undefined){ if(b === undefined || J(i) !== J(b)) out[k] = i; }
+  }
+  return out;
+}
 window.addEventListener('storage', (e) => {
-  if(e.key !== STORE_KEY || !e.newValue || !S || Store.loadFailed) return;
+  if(!S || Store.loadFailed) return;
+  /* the in-progress workout changed in another instance */
+  if(e.key === ACTIVE_KEY){
+    const ae = document.activeElement;
+    const typing = !!(ae && ae.classList && ae.classList.contains('wk-in'));
+    if(!e.newValue){
+      if(S.active){
+        S.active = null; Store._hadActive = false;
+        try{ Wake.off(); }catch(_){}
+        try{ if(Router.cur() && Router.cur().name === 'workout') Router.tab('home'); else App.updateChrome(); UI.toast('Workout finished on another screen'); }catch(_){}
+      }
+      return;
+    }
+    if(typing) return;
+    let a = null; try{ a = sanitizeActive(JSON.parse(e.newValue)); }catch(err){ return; }
+    if(!a) return;
+    S.active = a; Store._hadActive = true;
+    try{ if(Router.cur() && Router.cur().name === 'workout' && !Router.overlays().length) Router.refresh(); else App.updateChrome(); }catch(_){}
+    return;
+  }
+  if(e.key !== STORE_KEY || !e.newValue) return;
   let incoming; try{ incoming = JSON.parse(e.newValue); }catch(err){ return; }
   if(!incoming || typeof incoming !== 'object') return;
   const inc = normalizeState(incoming);
@@ -3592,14 +3658,19 @@ window.addEventListener('storage', (e) => {
     Store.rev++; Store._savedRev = Store.rev;
     try{ const c = Object.assign({}, S); delete c.active; Store._lastJson = JSON.stringify(c); }catch(_){}
   } else {
-    const have = new Set(S.sessions.map(s => s.id));
-    inc.sessions.forEach(s => { if(!have.has(s.id)) S.sessions.push(s); });
-    const tpl = new Set(S.templates.map(t => t.id));
-    inc.templates.forEach(t => { if(!tpl.has(t.id)) S.templates.push(t); });
-    const bd = new Set(S.body.map(b => b.date));
-    inc.body.forEach(b => { if(!bd.has(b.date)) S.body.push(b); });
-    Object.keys(inc.customEx).forEach(k => { if(!S.customEx[k]) S.customEx[k] = inc.customEx[k]; });
-    Store.rev++; Store.flush(true);
+    let base = {}; try{ base = Store._lastJson ? JSON.parse(Store._lastJson) : {}; }catch(_){ base = {}; }
+    const local = S, out = {};
+    const keys = new Set([...Object.keys(local), ...Object.keys(inc)]);
+    keys.delete('active');
+    for(const k of keys){
+      if(k === 'sessions' || k === 'templates' || k === 'goals') out[k] = merge3List(base[k], local[k], inc[k], x => x.id);
+      else if(k === 'body') out[k] = merge3List(base[k], local[k], inc[k], x => x.date).sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+      else if(k === 'customEx' || k === 'exPrefs' || k === 'achievements') out[k] = merge3Obj(base[k], local[k], inc[k]);
+      else out[k] = JSON.stringify(local[k]) === JSON.stringify(base[k]) ? inc[k] : local[k];
+    }
+    S = Store.s = normalizeState(out); S.active = active;
+    try{ const c = Object.assign({}, inc); delete c.active; Store._lastJson = JSON.stringify(c); }catch(_){}
+    Store.rev++; Store.flush();
   }
   Store.emit('change');
   try{
@@ -3786,7 +3857,8 @@ const Legacy = {
     if(!state.templates.some(t => t.prog === 'classic4')){
       const fresh = !state.profile.onboarded || !state.templates.length;
       this.installSplit(state, {}, state.sessions);
-      if(fresh){ state.profile.weeklyTarget = 4; state.settings.weekStart = 0; }
+      state.profile.weeklyTarget = 4;
+      if(fresh) state.settings.weekStart = 0;
     }
     else state.sessions.forEach(s => { if(s.legacyDay && !s.tplId) s.tplId = 'tpl_' + s.legacyDay.toLowerCase(); });
     state.profile.onboarded = true;
@@ -4239,7 +4311,7 @@ const Calc = {
     }
     const inc = Ex.inc(exId, top.w);
     /* round a kg value to a loadable step in the user's unit */
-    const step = (kg) => { const incU = U.isLb() ? inc / LB : inc; const v = U.isLb() ? kg / LB : kg; const r = roundTo(v, incU > 0 ? incU : 1); return U.isLb() ? r * LB : r; };
+    const step = (kg) => { const incU = U.isLb() ? inc / LB : inc; const v = U.isLb() ? kg / LB : kg; const g = incU > 0 ? incU : 1; let r = Math.floor(v / g + 1e-9) * g; const topU = U.isLb() ? top.w / LB : top.w; if(r >= topU - 1e-9) r = topU - g; r = Math.max(0, r); return U.isLb() ? r * LB : r; };
     if(daysOff >= 14 && top.w > 0) return {w: step(top.w * 0.9), r: lo || top.r, kind:'back', msg:'Welcome back — eased off ~10%'};
     const reachedTop = S.settings.progression === 'all' ? (hi && work.every(x => x.r >= hi)) : (hi && top.r >= hi);
     /* round to the finest practical step (0.25 kg / 0.5 lb) — never snap to the increment grid */
@@ -4253,7 +4325,7 @@ const Calc = {
     }
     if(S.settings.progression === 'all' && hi){
       const weakest = work.reduce((m, x) => (x.r < m.r ? x : m), work[0]);
-      return {w: top.w, r: Math.min((weakest.r || 0) + 1, hi), kind:'reps', msg:'Same weight — get every set to ' + hi + ' reps'};
+      return {w: top.w, r: Math.min((weakest.r || 0) + 1, hi), kind:'reps', msg:'Same weight — build every set up to ' + hi + ' reps'};
     }
     return {w: top.w, r: hi ? Math.min((top.r || 0) + 1, hi) : (top.r || 0) + 1, kind:'reps', msg:'Same weight, one more rep'};
   },
@@ -4294,29 +4366,34 @@ const Calc = {
     const ws = D.weekStart(D.today()), we = D.add(ws, 6);
     const sk = this.startKey();
     const first = sk > ws;
-    let goal = st.target;
-    if(first){
-      const planned = Plan.mode() === 'week' ? Plan.week().filter(d => d.key >= sk && d.tpl && !d.tpl.light).length : 0;
-      const prorated = Math.max(1, Math.round(st.target * (D.diff(we, sk) + 1) / 7));
-      goal = clamp(planned || prorated, 1, st.target);
-    }
+    const goal = this.goalFor(ws, st.target);
     const n = st.thisWeek;
     return {target: st.target, goal, n, left: Math.max(0, goal - n), hit: n >= goal, first, start: sk, streak: st};
   },
   /* streak = consecutive weeks that hit the weekly target. The current week never breaks it. */
+  /* goal for a given week: the weekly target, pro-rated for the week the user started */
+  goalFor(weekKey, target){
+    const sk = this.startKey();
+    if(D.weekStart(sk) !== weekKey || sk <= weekKey) return target;
+    const we = D.add(weekKey, 6);
+    const planned = Plan.mode() === 'week' ? Plan.week(weekKey).filter(d => d.key >= sk && d.tpl && !d.tpl.light).length : 0;
+    const prorated = Math.max(1, Math.round(target * (D.diff(we, sk) + 1) / 7));
+    return clamp(planned || prorated, 1, target);
+  },
   streak(){
     const target = Math.max(1, Math.round(Number(S.profile.weeklyTarget)) || 1);
     const wc = this.weekCounts();
+    const hit = (wk) => (wc[wk] || 0) >= this.goalFor(wk, target);
     const thisWeek = D.weekStart(D.today());
     let cur = 0, k = thisWeek;
-    if((wc[k] || 0) >= target) cur++;
+    if(hit(k)) cur++;
     k = D.add(k, -7);
-    while((wc[k] || 0) >= target){ cur++; k = D.add(k, -7); }
+    while(hit(k)){ cur++; k = D.add(k, -7); }
     let best = 0, run = 0;
     const keys = Object.keys(wc).sort();
     if(keys.length){
       let w = keys[0];
-      while(w <= thisWeek){ if((wc[w] || 0) >= target){ run++; best = Math.max(best, run); } else if(w !== thisWeek) run = 0; w = D.add(w, 7); }
+      while(w <= thisWeek){ if(hit(w)){ run++; best = Math.max(best, run); } else if(w !== thisWeek) run = 0; w = D.add(w, 7); }
     }
     return {current: cur, best: Math.max(best, cur), thisWeek: wc[thisWeek] || 0, target};
   },
@@ -4667,7 +4744,13 @@ const Act = {
   },
 };
 document.addEventListener('click', (ev) => {
-  const el = ev.target.closest('[data-act]');
+  let el = ev.target.closest('[data-act]');
+  if(!el && ev.target.closest && ev.target.closest('.hm-grid')){
+    /* heatmap cells are small: snap a tap to the nearest tappable cell within 14px */
+    let best = null, bd = 14;
+    ev.target.closest('.hm-grid').querySelectorAll('.hm-c[data-act]').forEach(c => { const r = c.getBoundingClientRect(); const d = Math.hypot(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2)); if(d < bd){ bd = d; best = c; } });
+    el = best;
+  }
   if(!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
   const ovEl = el.closest('[data-ov]');
   const since = ovEl ? (performance.now() - (+ovEl.dataset.openedAt || 0)) : (performance.now() - (Router._navAt || 0));
@@ -5381,6 +5464,7 @@ const App = {
       <div class="stack-sm">
         ${snap && snap.state ? `<button class="btn primary block" data-act="app:recoverSnap">${ic('refresh')}Restore safety copy (${esc(D.rel(D.fromTs(snap.at)))})</button>` : ''}
         <button class="btn ${snap && snap.state ? 'outline' : 'primary'} block" data-act="app:recoverImport">${ic('upload')}Import a backup file</button>
+        <button class="btn outline block" data-act="app:recoverCopy">${ic('clipboard')}Copy the damaged data (for support)</button>
         <button class="btn ghost block" data-act="app:recoverFresh">Start fresh</button>
       </div>`});
   },
@@ -5401,8 +5485,14 @@ Act.on({
     const ov = UI._ovFor(el); if(ov) ov.close();
     UI.toast('Backup imported — ' + plural(S.sessions.length, 'workout'), {type:'ok'}); Router.tab('home');
   },
+  'app:recoverCopy': async () => {
+    let raw = null; try{ raw = (Store.loadFailed && Store.loadFailed.key) ? localStorage.getItem(Store.loadFailed.key) : localStorage.getItem(STORE_KEY); }catch(e){}
+    const ok = raw ? await Files.copy(raw) : false;
+    UI.toast(ok ? 'Copied — paste it into a note or email to keep it' : 'Couldn’t copy the data', {type: ok ? 'ok' : 'err'});
+  },
   'app:recoverFresh': async (el) => {
-    if(!(await UI.confirm({title:'Start fresh?', msg:'Your unreadable data stays stored aside on this device, but the app will start empty.', ok:'Start fresh', danger:true}))) return;
+    const kept = !!(Store.loadFailed && Store.loadFailed.key);
+    if(!(await UI.confirm({title:'Start fresh?', msg: kept ? 'Your unreadable data stays stored aside on this device, but the app will start empty.' : 'There wasn’t room to keep a copy of the unreadable data — starting fresh will erase it. Use “Copy the damaged data” first if you want to keep it.', ok:'Start fresh', danger:true}))) return;
     const ov = UI._ovFor(el); if(ov) ov.close();
     Store.resolveLoadFailure(); S.profile.onboarded = false; Store.commit(); Router.replace(Router.defs.onboarding ? 'onboarding' : 'home');
   },
@@ -8193,7 +8283,8 @@ const PROGRAMS = [
     const b = meta(ex).bests || {};
     if(type === 'wr' && typed('w') && vals.w > 0){
       best = b.has && isNum(b.w) && b.w > 0 ? b.w : null;
-      if(vals.w > 400 || (best && vals.w > best * 2.5 && vals.w - best >= 20)){ fields.push('w'); kind = 'weight'; }
+      /* absolute cap only without history: a lifter with a 450 kg leg press may log 455 */
+      if((!best && vals.w > 400) || (best && vals.w > best * 2.5 && vals.w - best >= 20)){ fields.push('w'); kind = 'weight'; }
     }
     if(type === 'bw' && typed('w') && vals.w > 0){
       best = b.has && isNum(b.w) && b.w > 0 ? b.w : null;
@@ -8232,7 +8323,7 @@ const PROGRAMS = [
       return;
     }
     const msg = odd.kind === 'weight'
-      ? (odd.best ? txt + ' is far above your heaviest so far (' + U.fmt(odd.best) + '). Is that right?' : U.fmt(vals.w) + ' is a very heavy weight. Is ' + txt + ' right?')
+      ? (odd.best && vals.w > odd.best * 2.5 ? txt + ' is far above your heaviest so far (' + U.fmt(odd.best) + '). Is that right?' : U.fmt(vals.w) + ' is a very heavy weight. Is ' + txt + ' right?')
       : odd.kind === 'reps' ? vals.r + ' reps in one set is a lot. Is ' + txt + ' right?'
       : 'That’s a ' + F.clock(vals.t) + ' hold. Is that right?';
     const yes = await UI.confirm({icon: 'warn', title: 'Double-check this set', msg, ok: 'Yes, log it', cancel: 'Fix it'});
@@ -8404,7 +8495,9 @@ const PROGRAMS = [
     focusInp = el;
     const row = el.closest('.wk-row'); if(row) row.classList.add('focus');
     try{ el.select(); }catch(_){}
-    setTimeout(() => { try{ if(document.activeElement === el) el.setSelectionRange(0, el.value.length); }catch(_){} }, 0);
+    /* re-select after the tap's mouseup (iOS) — but never once the user has started typing */
+    const v0 = el.value;
+    setTimeout(() => { try{ if(document.activeElement === el && el.value === v0) el.setSelectionRange(0, el.value.length); }catch(_){} }, 0);
     showKb(el);
   });
   document.addEventListener('focusout', (e) => {
@@ -9263,7 +9356,10 @@ const PROGRAMS = [
     elapsed(){
       const a = S && S.active;
       if(!a || a.editingId || a.past || !isNum(a.start)) return 0;
-      return Math.max(0, Math.floor((Date.now() - a.start) / 1000));
+      /* active time only: long pauses (an abandoned draft resumed hours later) don't count */
+      const now = Date.now();
+      let st = a.start; try{ st = activeStart(a, now); }catch(e){}
+      return Math.max(0, Math.floor((now - st) / 1000));
     },
     async start(opts){
       opts = opts || {};
@@ -9703,7 +9799,7 @@ const PROGRAMS = [
           <div class="tr-next-name">${wg.hit ? 'Week complete' : 'Planned workouts done'}</div>
           <div class="tr-next-sub">${esc(wg.hit ? plural(wg.n, 'workout') + ' done' + (up.light ? ' · rest day' : ' · enjoy the rest') : wg.n + ' of ' + wg.goal + ' · ' + plural(wg.left, 'more workout') + ' for your goal')}</div>
         </div>
-        ${up.light ? `<button class="btn tinted tr-next-go" data-act="tr:start"${attrs({id:up.light.id})} aria-label="${esc('Start ' + up.light.name)}">${ic('play')}Light</button>` : ''}
+        ${!wg.hit && Tpl.all().some(x => !x.light && x.ex.length) ? `<button class="btn tinted tr-next-go" data-act="tr:extra">${ic('plus')}Pick one</button>` : (up.light ? `<button class="btn tinted tr-next-go" data-act="tr:start"${attrs({id:up.light.id})} aria-label="${esc('Start ' + up.light.name)}">${ic('play')}Light</button>` : '')}
       </div>`;
     }
     return `<div class="tr-next none" data-act="nav:go" data-to="plan" role="button" tabindex="0">
@@ -11228,6 +11324,12 @@ const PROGRAMS = [
       return r;
     };
   });
+  /* planned routines done but the weekly goal isn't: pick any routine for an extra session */
+  ACTIONS['tr:extra'] = async () => {
+    const list = Tpl.all().filter(x => !x.light && x.ex.length).sort((a, b) => { const la = Tpl.lastDone(a.id), lb = Tpl.lastDone(b.id); return (la ? la.start : 0) - (lb ? lb.start : 0); });
+    const id = await UI.choose({title:'Extra workout', footnote:'Least recently done first', options: list.map(t => { const ld = Tpl.lastDone(t.id); return {value: t.id, label: t.name, sub: Tpl.summary(t) + (ld ? ' · last ' + D.rel(ld.date) : ''), icon:'dumbbell'}; })});
+    if(id) Workout.start({tplId: id});
+  };
   Act.on(ACTIONS);
 
   /* ==================================================================
@@ -14071,12 +14173,12 @@ const PROGRAMS = [
     if(!touched.length){ UI.toast('Nothing to merge'); return; }
     const both = touched.filter(s => s.ex.some(en => en && en.exId === target)).length;
     const eA = Ex.get(id).eq, eB = Ex.get(target).eq;
-    const lines = [(touched.length === 1 ? 'Your session' : 'All ' + touched.length + ' sessions') + ' of ' + Ex.name(id) + ' move to ' + Ex.name(target) + '.'];
+    const lines = [(touched.length === 1 ? 'Your one session of ' + Ex.name(id) + ' moves to ' : 'All ' + touched.length + ' sessions of ' + Ex.name(id) + ' move to ') + Ex.name(target) + '.'];
     if(both) lines.push('Where you did both (' + both + '), the sets join one entry.');
     if(eA && eB && eA !== eB) lines.push('Note: ' + Ex.equipName(eA).toLowerCase() + ' and ' + Ex.equipName(eB).toLowerCase() + ' weights will share one chart.');
     const ok = await UI.confirm({title:'Merge history?', msg: lines.join(' '), ok:'Merge', danger:true, icon:'swap'});
     if(!ok) return;
-    Store.snapshot('Before merging ' + Ex.name(id) + ' into ' + Ex.name(target));
+    /* no safety snapshot here: it would replace the import/reset safety copy — the Undo toast below covers merges */
     /* undo restores each touched session's exercise list exactly */
     const undo = touched.map(s => ({s, ex: s.ex.slice(), recs: s.ex.map(en => (en ? {en, exId: en.exId, sets: Array.isArray(en.sets) ? en.sets.slice() : en.sets, has: 'note' in en, note: en.note} : null)).filter(Boolean)}));
     const pinsBefore = (S.pinned || []).slice();
@@ -14403,7 +14505,7 @@ const PROGRAMS = [
     /* third stat: best streak once there is one — before that, this week's progress (never a "0 wks" for someone just starting) */
     const third = sk.best > 0
       ? `<div><b class="num">${F.int(sk.best)}<small>${sk.best === 1 ? 'wk' : 'wks'}</small></b><span>Best streak</span></div>`
-      : `<div><b class="num">${F.int(Math.min(sk.thisWeek || 0, 99))}<small>/ ${F.int(sk.target || tgt())}</small></b><span>This week</span></div>`;
+      : `<div><b class="num">${F.int(Math.min(sk.thisWeek || 0, 99))}<small>/ ${F.int(safe(() => Calc.weekGoal().goal, sk.target || tgt()))}</small></b><span>This week</span></div>`;
     let h = UI.largeTitle('Profile', 'Goals, badges & settings', `<button class="icon-btn filled" data-act="nav:go" data-to="settings" aria-label="Settings">${ic('settings')}</button>`);
     h += `<section class="hero-card pf-hero rise">
       <button class="pf-id" data-act="pf:editName" aria-label="Edit your name">
@@ -14492,6 +14594,8 @@ const PROGRAMS = [
     if(syncGoals()) setTimeout(() => commit(), 0);
     const t = tgt();
     const sk = safe(() => Calc.streak(), {current:0, thisWeek:0});
+    const wg = safe(() => Calc.weekGoal(), null);
+    const wgGoal = Math.max(1, (wg && wg.goal) || t), wgFirst = !!(wg && wg.first);
     const g = bwGoal();
     const cur = latestBw();
     const bw = bwBlock();
@@ -14505,8 +14609,8 @@ const PROGRAMS = [
         <button class="pf-step" data-act="pf:target" data-d="1" aria-label="More"${t >= 7 ? ' disabled' : ''}>${ic('plus')}</button>
       </div>
       ${S.sessions.length ? `<div class="pf-week">
-        <div class="between small"><span class="muted">This week</span><span class="semibold num">${Math.min(sk.thisWeek || 0, 99)} of ${t}</span></div>
-        ${UI.bar((sk.thisWeek || 0) / t, (sk.thisWeek || 0) >= t ? 'success' : '')}
+        <div class="between small"><span class="muted">${wgFirst ? 'Your first week' : 'This week'}</span><span class="semibold num">${Math.min(sk.thisWeek || 0, 99)} of ${wgGoal}</span></div>
+        ${UI.bar((sk.thisWeek || 0) / wgGoal, (sk.thisWeek || 0) >= wgGoal ? 'success' : '')}
         <div class="xsmall faint mt-2">${sk.current ? `${ic('flame', 12, 'pf-inline-ic')} ${plural(sk.current, 'week')} in a row on target` : 'Hit your target this week to start a streak'}</div>
       </div>` : `<div class="pf-week pf-week-new small muted">${ic('flame', 15, 'pf-inline-ic')}<span>Your first workout starts the count. Hit ${plural(t, 'workout')} in a week to start a streak.</span></div>`}
     </section>`;
@@ -14946,6 +15050,7 @@ const PROGRAMS = [
       <div class="pf-imp">
         <div class="pf-imp-hd"><span class="pf-imp-ic">${ic(parsed.kind === 'legacy' ? 'history' : 'database')}</span><div class="grow"><b>${esc(kind)}</b><span class="num">${esc(range)}</span></div></div>
         <div class="pf-imp-stats">${stats.map(s => `<div><b class="num">${esc(s[0])}</b><span>${esc(s[1])}</span></div>`).join('')}</div>
+        ${sm.future ? `<div class="pf-imp-safe" style="color:var(--warn)">${ic('warn', 15)}<span>${esc(plural(sm.future, 'workout'))} in this backup ${sm.future === 1 ? 'is' : 'are'} dated in the future — check your phone’s date, or delete ${sm.future === 1 ? 'it' : 'them'} from History after importing.</span></div>` : ''}
         <button class="btn primary block lg" data-act="pf:impApply" data-mode="merge">${ic('layers')}Merge (recommended)</button>
         <p class="pf-imp-note">Adds workouts you don't have yet. Nothing on this phone is deleted.</p>
         <button class="btn danger block" data-act="pf:impApply" data-mode="replace">Replace everything</button>
@@ -15174,7 +15279,8 @@ const PROGRAMS = [
     switch(ob.where){
       case 'bodyweight': id = first('bw3', 'home3'); break;
       case 'home': id = first('home3', 'bw3'); break;
-      case 'basic': id = ob.goal === 'strength' && days <= 4 ? first('str5', 'fw3', 'fb3') : first('fw3', 'fb3', 'str5'); break;
+      /* basic gym: strength goals get the barbell 5×5 at any frequency (extra days = lighter technique work) */
+      case 'basic': id = ob.goal === 'strength' ? first('str5', 'fw3', 'fb3') : first('fw3', 'fb3', 'str5'); break;
       default:
         if(ob.goal === 'strength') id = days <= 3 || (days === 4 && ob.level === 'beginner') ? first('str5', 'fb3') : first('ul4', 'str5');
         else if(ob.level === 'beginner') id = days >= 4 ? first('ul4', 'fb3') : first('fb3');
@@ -15688,11 +15794,19 @@ const PROGRAMS = [
       else if(res === 'failed') UI.toast('Could not create the file', {type:'err'});
     },
     'pf:restoreSnap': async () => {
-      const snap = Store.getSnapshot();
-      if(!snap || !snap.state){ UI.toast('Nothing to restore'); return; }
+      const all = (Store.getSnapshots ? Store.getSnapshots() : [Store.getSnapshot()]).filter(x => x && x.state);
+      if(!all.length){ UI.toast('Nothing to restore'); return; }
+      let snap = all[0];
+      if(all.length > 1){
+        const key = await UI.choose({title:'Restore a safety copy', options: all.map(x => ({value: x.key, icon:'refresh',
+          label: x.reason ? x.reason.charAt(0).toUpperCase() + x.reason.slice(1) : 'Safety copy',
+          sub: D.short(D.fromTs(x.at || Date.now())) + ' · ' + D.time(x.at || Date.now()) + ' · ' + plural(x.sessions || 0, 'workout')}))});
+        if(!key) return;
+        snap = all.find(x => x.key === key) || all[0];
+      }
       const ok = await UI.confirm({title:'Undo last import or reset?', msg:'Brings back your data as it was ' + D.short(D.fromTs(snap.at || Date.now())) + ' at ' + D.time(snap.at || Date.now()) + (snap.reason ? ' (' + snap.reason + ')' : '') + '. Anything logged since then will be replaced.', ok:'Restore', icon:'refresh'});
       if(!ok) return;
-      if(!Store.restoreSnapshot()){ UI.toast('Could not restore', {type:'err'}); return; }
+      if(!Store.restoreSnapshot(snap.key)){ UI.toast('Could not restore', {type:'err'}); return; }
       try{ Theme.apply(); }catch(e){}
       Router.tab('home');
       UI.toast('Data restored', {type:'ok'});
@@ -16064,10 +16178,8 @@ const PROGRAMS = [
     });
     const added = [];
     ses.forEach((x, i) => { if(!x.oneOff && slot[i] < 0 && x.n > 0) added.push(i); });
-    added.forEach(i => {
-      const j = tpl.findIndex((y, k) => !used[k] && similarEx(y.exId, ses[i].exId));
-      if(j >= 0){ used[j] = true; swapOf[i] = j; }
-    });
+    /* no inferred swaps: an added exercise + a skipped one is just an addition (explicit swaps are applied
+       to the routine from the workout screen, or marked oneOff) — so a short session can never strip the routine */
     const changes = [];
     added.forEach(i => { if(swapOf[i] >= 0) changes.push({k:'swap', from: tpl[swapOf[i]].exId, to: ses[i].exId, i, j: swapOf[i]}); });
     added.forEach(i => { if(swapOf[i] < 0) changes.push({k:'add', exId: ses[i].exId, n: ses[i].n, i}); });
@@ -16299,9 +16411,10 @@ const PROGRAMS = [
 
   function nextSection(){
     const st = Calc.streak();
-    const target = Math.max(1, st.target || 1);
-    const done = st.thisWeek || 0;
-    const met = done >= target;
+    const wg = Calc.weekGoal ? Calc.weekGoal() : {goal: st.target, n: st.thisWeek, hit: st.thisWeek >= st.target};
+    const target = Math.max(1, wg.goal || 1);
+    const done = wg.n || 0;
+    const met = !!wg.hit;
     let un = null;
     try{ un = Plan.upNext(); }catch(e){ un = null; }
     let nextLine = '';
@@ -16458,7 +16571,8 @@ const PROGRAMS = [
        (the session in History, or Home when edited from this summary) */
     'su:done': () => {
       if(notesDirty) notesCommit.flush();
-      if(cur && cur.edited) Router.back(); else Router.tab('home');
+      const below = Router.routes().slice(-2, -1)[0];
+      if(cur && cur.edited && below && (below.name === 'session' || below.name === 'history')) Router.back(); else Router.tab('home');
     },
     'su:share': (el) => {
       const id = el.dataset.id || (cur && cur.id);
@@ -16984,7 +17098,6 @@ const PROGRAMS = [
     Theme.init();
     App.tabIcons();
     Kbd.init();
-    S.meta.lastOpen = Date.now();
     let root = 'home';
     if(!S.profile.onboarded && !S.sessions.length && Router.defs.onboarding) root = 'onboarding';
     Router.init(root);
